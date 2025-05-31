@@ -112,7 +112,10 @@ struct HormoneChartView: View {
     }
     
     var body: some View {
-        NavigationView {
+        ZStack {
+            DesignSystem.Colors.screenBackground
+                .ignoresSafeArea()
+            
             TabView(selection: $selectedTab) {
                 // Chart Tab
                 chartView
@@ -121,6 +124,7 @@ struct HormoneChartView: View {
                         Text("Hormone Chart")
                     }
                     .tag(0)
+                    .background(DesignSystem.Colors.screenBackground)
                 
                 // Predictions Tab
                 predictionsView
@@ -129,219 +133,242 @@ struct HormoneChartView: View {
                         Text("Predictions")
                     }
                     .tag(1)
+                    .background(DesignSystem.Colors.screenBackground)
             }
-            .navigationTitle("Hormone Tracking")
-            
+            .background(DesignSystem.Colors.screenBackground)
+            .navigationBarHidden(true)
             .onAppear {
                 print("DEBUG: HormoneChartView appeared")
                 loadPeriodData()
                 calculateCurrentCycleDay()
                 debugPeriodData() // Add this line
             }
-            
         }
     }
     
     private var chartView: some View {
-        ScrollView {
-            VStack(spacing: 20) {
+        ScrollView(showsIndicators: false) {
+            VStack(spacing: DesignSystem.Spacing.large) {
+                // Header
+                MinimalCard {
+                    VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
+                        Text("Hormone Tracking")
+                            .font(DesignSystem.Typography.largeTitle)
+                            .foregroundColor(DesignSystem.Colors.primaryText)
+                        
+                        Text("Monitor your hormonal patterns throughout your cycle")
+                            .font(DesignSystem.Typography.caption)
+                            .foregroundColor(DesignSystem.Colors.secondaryText)
+                    }
+                }
+                
                 // Current Cycle Status with Phase Description
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("Current Cycle")
-                        .font(.title2)
-                        .fontWeight(.semibold)
-                    
-                    if let cycleDay = currentCycleDay {
-                        HStack {
-                            VStack(alignment: .leading) {
-                                Text("Day \(cycleDay)")
-                                    .font(.largeTitle)
-                                    .fontWeight(.bold)
-                                    .foregroundColor(.pink)
+                MinimalCard {
+                    VStack(alignment: .leading, spacing: DesignSystem.Spacing.medium) {
+                        Text("Current Cycle")
+                            .font(DesignSystem.Typography.headline)
+                            .foregroundColor(DesignSystem.Colors.primaryText)
+                        
+                        if let cycleDay = currentCycleDay {
+                            HStack {
+                                VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
+                                    Text("Day \(cycleDay)")
+                                        .font(DesignSystem.Typography.largeTitle)
+                                        .fontWeight(.light)
+                                        .foregroundColor(DesignSystem.Colors.softPink)
+                                    
+                                    Text(cyclePhase(for: cycleDay))
+                                        .font(DesignSystem.Typography.caption)
+                                        .foregroundColor(DesignSystem.Colors.secondaryText)
+                                }
                                 
-                                Text(cyclePhase(for: cycleDay))
-                                    .font(.subheadline)
-                                    .foregroundColor(.secondary)
+                                Spacer()
+                                
+                                if let startDate = lastPeriodStart {
+                                    VStack(alignment: .trailing, spacing: DesignSystem.Spacing.xs) {
+                                        Text("Started")
+                                            .font(DesignSystem.Typography.caption)
+                                            .foregroundColor(DesignSystem.Colors.secondaryText)
+                                        Text(startDate, formatter: dateFormatter)
+                                            .font(DesignSystem.Typography.caption)
+                                            .fontWeight(.medium)
+                                            .foregroundColor(DesignSystem.Colors.primaryText)
+                                    }
+                                }
+                            }
+                            
+                            // Phase description
+                            Text(getPhaseDescription(for: cycleDay))
+                                .font(DesignSystem.Typography.body)
+                                .foregroundColor(DesignSystem.Colors.primaryText)
+                                .padding(.top, DesignSystem.Spacing.small)
+                                .lineSpacing(2)
+                            
+                        } else {
+                            VStack(alignment: .leading, spacing: DesignSystem.Spacing.small) {
+                                Text("No Active Cycle")
+                                    .font(DesignSystem.Typography.body)
+                                    .fontWeight(.medium)
+                                    .foregroundColor(DesignSystem.Colors.secondaryText)
+                                
+                                Text("Start tracking your period to see hormone predictions")
+                                    .font(DesignSystem.Typography.caption)
+                                    .foregroundColor(DesignSystem.Colors.tertiaryText)
+                            }
+                        }
+                    }
+                }
+                
+                // Hormone Selection - Single Row
+                MinimalCard {
+                    VStack(alignment: .leading, spacing: DesignSystem.Spacing.medium) {
+                        Text("Select Hormone")
+                            .font(DesignSystem.Typography.body)
+                            .foregroundColor(DesignSystem.Colors.primaryText)
+                        
+                        HStack(spacing: DesignSystem.Spacing.small) {
+                            ForEach(HormoneType.allCases, id: \.self) { hormone in
+                                MinimalCompactHormoneButton(
+                                    hormone: hormone,
+                                    isSelected: selectedHormone == hormone,
+                                    action: {
+                                        print("DEBUG: Selected hormone: \(hormone.rawValue)")
+                                        selectedHormone = hormone
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+                
+                // Chart Section
+                MinimalCard {
+                    VStack(alignment: .leading, spacing: DesignSystem.Spacing.large) {
+                        HStack {
+                            VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
+                                Text("Hormone Levels Throughout Cycle")
+                                    .font(DesignSystem.Typography.headline)
+                                    .foregroundColor(DesignSystem.Colors.primaryText)
+                                Text(selectedHormone.unit)
+                                    .font(DesignSystem.Typography.caption)
+                                    .foregroundColor(DesignSystem.Colors.secondaryText)
                             }
                             
                             Spacer()
                             
-                            if let startDate = lastPeriodStart {
-                                VStack(alignment: .trailing) {
-                                    Text("Started")
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
-                                    Text(startDate, formatter: dateFormatter)
-                                        .font(.footnote)
+                            if let cycleDay = currentCycleDay,
+                               let dayData = hormoneData.first(where: { $0.day == cycleDay }) {
+                                VStack(alignment: .trailing, spacing: DesignSystem.Spacing.xs) {
+                                    Text("Current Level")
+                                        .font(DesignSystem.Typography.caption)
+                                        .foregroundColor(DesignSystem.Colors.secondaryText)
+                                    Text(String(format: "%.1f", dayData.getValue(for: selectedHormone)))
+                                        .font(DesignSystem.Typography.title)
                                         .fontWeight(.medium)
+                                        .foregroundColor(selectedHormone.color)
                                 }
                             }
                         }
                         
-                        // Phase description
-                        Text(getPhaseDescription(for: cycleDay))
-                            .font(.body)
-                            .foregroundColor(.primary)
-                            .padding(.top, 8)
-                            .lineSpacing(2)
+                        ImprovedHormoneChart(
+                            data: hormoneData,
+                            selectedHormone: selectedHormone,
+                            currentCycleDay: currentCycleDay
+                        )
+                        .frame(height: 300)
                         
-                    } else {
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("No Active Cycle")
-                                .font(.title3)
-                                .fontWeight(.medium)
-                                .foregroundColor(.secondary)
-                            
-                            Text("Start tracking your period to see hormone predictions")
-                                .font(.body)
-                                .foregroundColor(.secondary)
-                        }
+                        // Cycle Phase Information
+                        MinimalCyclePhaseInfo()
                     }
                 }
-                .padding()
-                .background(Color(.systemGray6))
-                .cornerRadius(12)
-                
-                // Hormone Selection - Single Row
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("Select Hormone")
-                        .font(.headline)
-                    
-                    HStack(spacing: 8) {
-                        ForEach(HormoneType.allCases, id: \.self) { hormone in
-                            CompactHormoneButton(
-                                hormone: hormone,
-                                isSelected: selectedHormone == hormone,
-                                action: {
-                                    print("DEBUG: Selected hormone: \(hormone.rawValue)")
-                                    selectedHormone = hormone
-                                }
-                            )
-                        }
-                    }
-                }
-                .padding()
-                .background(Color(.systemGray6))
-                .cornerRadius(12)
-                
-                // Chart Section
-                VStack(alignment: .leading, spacing: 16) {
-                    HStack {
-                        VStack(alignment: .leading) {
-                            Text("Hormone Levels Throughout Cycle")
-                                .font(.headline)
-                            Text(selectedHormone.unit)
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        }
-                        
-                        Spacer()
-                        
-                        if let cycleDay = currentCycleDay,
-                           let dayData = hormoneData.first(where: { $0.day == cycleDay }) {
-                            VStack(alignment: .trailing) {
-                                Text("Current Level")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                                Text(String(format: "%.1f", dayData.getValue(for: selectedHormone)))
-                                    .font(.title3)
-                                    .fontWeight(.bold)
-                                    .foregroundColor(selectedHormone.color)
-                            }
-                        }
-                    }
-                    
-                    ImprovedHormoneChart(
-                        data: hormoneData,
-                        selectedHormone: selectedHormone,
-                        currentCycleDay: currentCycleDay
-                    )
-                    .frame(height: 300)
-                    
-                    // Cycle Phase Information
-                    CyclePhaseInfo()
-                }
-                .padding()
-                .background(Color(.systemGray6))
-                .cornerRadius(12)
                 
                 Spacer(minLength: 50)
             }
-            .padding()
+            .padding(DesignSystem.Spacing.large)
         }
     }
     
     private var predictionsView: some View {
-        ScrollView {
-            VStack(spacing: 20) {
+        ScrollView(showsIndicators: false) {
+            VStack(spacing: DesignSystem.Spacing.large) {
+                // Header
+                MinimalCard {
+                    VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
+                        Text("Predictions")
+                            .font(DesignSystem.Typography.largeTitle)
+                            .foregroundColor(DesignSystem.Colors.primaryText)
+                        
+                        Text("Future cycle predictions based on your history")
+                            .font(DesignSystem.Typography.caption)
+                            .foregroundColor(DesignSystem.Colors.secondaryText)
+                    }
+                }
+                
                 // Next Period Prediction
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("Next Period Prediction")
-                        .font(.title2)
-                        .fontWeight(.semibold)
-                    
-                    if let nextPeriod = predictNextPeriod() {
-                        VStack(spacing: 12) {
+                MinimalCard {
+                    VStack(alignment: .leading, spacing: DesignSystem.Spacing.medium) {
+                        Text("Next Period Prediction")
+                            .font(DesignSystem.Typography.headline)
+                            .foregroundColor(DesignSystem.Colors.primaryText)
+                        
+                        if let nextPeriod = predictNextPeriod() {
                             HStack {
-                                Image(systemName: "calendar.circle.fill")
-                                    .foregroundColor(.pink)
+                                Image(systemName: "calendar.circle")
+                                    .foregroundColor(DesignSystem.Colors.softPink)
                                     .font(.title2)
                                 
-                                VStack(alignment: .leading) {
+                                VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
                                     Text("Expected Start")
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
+                                        .font(DesignSystem.Typography.caption)
+                                        .foregroundColor(DesignSystem.Colors.secondaryText)
                                     Text(nextPeriod, formatter: dateFormatter)
-                                        .font(.title3)
-                                        .fontWeight(.semibold)
-                                        .foregroundColor(.pink)
+                                        .font(DesignSystem.Typography.body)
+                                        .fontWeight(.medium)
+                                        .foregroundColor(DesignSystem.Colors.softPink)
                                 }
                                 
                                 Spacer()
                                 
                                 let daysUntil = Calendar.current.dateComponents([.day], from: Date(), to: nextPeriod).day ?? 0
-                                VStack(alignment: .trailing) {
+                                VStack(alignment: .trailing, spacing: DesignSystem.Spacing.xs) {
                                     Text("Days Until")
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
+                                        .font(DesignSystem.Typography.caption)
+                                        .foregroundColor(DesignSystem.Colors.secondaryText)
                                     Text("\(max(0, daysUntil))")
-                                        .font(.title2)
-                                        .fontWeight(.bold)
-                                        .foregroundColor(.pink)
+                                        .font(DesignSystem.Typography.title)
+                                        .fontWeight(.light)
+                                        .foregroundColor(DesignSystem.Colors.softPink)
                                 }
                             }
-                            .padding()
-                            .background(Color(.systemBackground))
+                            .padding(DesignSystem.Spacing.medium)
+                            .background(DesignSystem.Colors.screenBackground)
                             .cornerRadius(8)
+                        } else {
+                            Text("Track at least 2 periods to see predictions")
+                                .font(DesignSystem.Typography.body)
+                                .foregroundColor(DesignSystem.Colors.secondaryText)
+                                .padding(DesignSystem.Spacing.medium)
                         }
-                    } else {
-                        Text("Track at least 2 periods to see predictions")
-                            .foregroundColor(.secondary)
-                            .padding()
                     }
                 }
-                .padding()
-                .background(Color(.systemGray6))
-                .cornerRadius(12)
                 
                 // Calendar View - Full Height
-                VStack(alignment: .leading, spacing: 16) {
-                    Text("6-Month Calendar")
-                        .font(.title2)
-                        .fontWeight(.semibold)
-                    
-                    FullHeightPeriodCalendar(
-                        lastPeriodStart: lastPeriodStart,
-                        averageCycleLength: calculateAverageCycleLength()
-                    )
+                MinimalCard {
+                    VStack(alignment: .leading, spacing: DesignSystem.Spacing.large) {
+                        Text("6-Month Calendar")
+                            .font(DesignSystem.Typography.headline)
+                            .foregroundColor(DesignSystem.Colors.primaryText)
+                        
+                        FullHeightPeriodCalendar(
+                            lastPeriodStart: lastPeriodStart,
+                            averageCycleLength: calculateAverageCycleLength()
+                        )
+                    }
                 }
-                .padding()
-                .background(Color(.systemGray6))
-                .cornerRadius(12)
                 
                 Spacer(minLength: 50)
             }
-            .padding()
+            .padding(DesignSystem.Spacing.large)
         }
     }
     
@@ -580,31 +607,34 @@ struct HormoneChartView: View {
 
 // MARK: - Supporting Views
 
-struct CompactHormoneButton: View {
+struct MinimalCompactHormoneButton: View {
     let hormone: HormoneChartView.HormoneType
     let isSelected: Bool
     let action: () -> Void
     
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 6) {
+            HStack(spacing: DesignSystem.Spacing.xs) {
                 Circle()
                     .fill(hormone.color)
-                    .frame(width: 12, height: 12)
+                    .frame(width: 8, height: 8)
                 
                 Text(hormone.rawValue)
-                    .font(.body)
-                    .fontWeight(isSelected ? .semibold : .regular)
+                    .font(DesignSystem.Typography.caption)
+                    .fontWeight(isSelected ? .medium : .regular)
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
+            .padding(.horizontal, DesignSystem.Spacing.medium)
+            .padding(.vertical, DesignSystem.Spacing.small)
             .background(
-                RoundedRectangle(cornerRadius: 20)
-                    .fill(isSelected ? hormone.color.opacity(0.2) : Color(.systemBackground))
-                    .stroke(isSelected ? hormone.color : Color.gray.opacity(0.3), lineWidth: 1)
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(isSelected ? hormone.color.opacity(0.1) : Color.clear)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(isSelected ? hormone.color.opacity(0.4) : DesignSystem.Colors.tertiaryText, lineWidth: 0.5)
+                    )
             )
         }
-        .foregroundColor(isSelected ? hormone.color : .primary)
+        .foregroundColor(isSelected ? hormone.color : DesignSystem.Colors.secondaryText)
     }
 }
 
@@ -845,42 +875,44 @@ struct CurrentCycleDayIndicator: View {
     }
 }
 
-struct CyclePhaseInfo: View {
+struct MinimalCyclePhaseInfo: View {
     var body: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: DesignSystem.Spacing.small) {
             Text("Cycle Phases")
-                .font(.caption)
-                .fontWeight(.medium)
-                .foregroundColor(.secondary)
+                .font(DesignSystem.Typography.caption)
+                .foregroundColor(DesignSystem.Colors.secondaryText)
+                .textCase(.uppercase)
+                .tracking(0.5)
             
-            HStack(spacing: 16) {
-                PhaseLabel(title: "Menstrual", days: "1-5", color: .red)
-                PhaseLabel(title: "Follicular", days: "1-13", color: .blue)
-                PhaseLabel(title: "Ovulation", days: "14", color: .orange)
-                PhaseLabel(title: "Luteal", days: "15-28", color: .purple)
+            HStack(spacing: DesignSystem.Spacing.medium) {
+                MinimalPhaseLabel(title: "Menstrual", days: "1-5", color: DesignSystem.Colors.softPink)
+                MinimalPhaseLabel(title: "Follicular", days: "1-13", color: DesignSystem.Colors.primaryBlue)
+                MinimalPhaseLabel(title: "Ovulation", days: "14", color: DesignSystem.Colors.paleOrange)
+                MinimalPhaseLabel(title: "Luteal", days: "15-28", color: DesignSystem.Colors.lightLavender)
             }
         }
     }
 }
 
-struct PhaseLabel: View {
+struct MinimalPhaseLabel: View {
     let title: String
     let days: String
     let color: Color
     
     var body: some View {
-        VStack(spacing: 2) {
+        VStack(spacing: DesignSystem.Spacing.xs) {
             Circle()
                 .fill(color.opacity(0.3))
-                .frame(width: 8, height: 8)
+                .frame(width: 6, height: 6)
             
             Text(title)
-                .font(.caption2)
+                .font(DesignSystem.Typography.micro)
                 .fontWeight(.medium)
+                .foregroundColor(DesignSystem.Colors.primaryText)
             
             Text("Days \(days)")
-                .font(.caption2)
-                .foregroundColor(.secondary)
+                .font(DesignSystem.Typography.micro)
+                .foregroundColor(DesignSystem.Colors.tertiaryText)
         }
         .frame(maxWidth: .infinity)
     }
@@ -905,32 +937,50 @@ struct SmoothHormoneLine: View {
             
             guard points.count > 1 else { return }
             
+            // Create smooth curve using Catmull-Rom spline interpolation
             path.move(to: points[0])
             
-            // Use simple quadratic curves for smooth, natural lines
-            for i in 1..<points.count {
-                let currentPoint = points[i]
-                let previousPoint = points[i-1]
+            for i in 0..<points.count - 1 {
+                let p0 = i > 0 ? points[i - 1] : points[0]
+                let p1 = points[i]
+                let p2 = points[i + 1]
+                let p3 = i < points.count - 2 ? points[i + 2] : points[points.count - 1]
                 
-                // Create control point for smooth curve
-                let controlPoint = CGPoint(
-                    x: previousPoint.x + (currentPoint.x - previousPoint.x) * 0.5,
-                    y: previousPoint.y + (currentPoint.y - previousPoint.y) * 0.3
-                )
-                
-                path.addQuadCurve(to: currentPoint, control: controlPoint)
+                // Generate intermediate points for smoother curve
+                let segments = 10
+                for j in 1...segments {
+                    let t = CGFloat(j) / CGFloat(segments)
+                    let point = catmullRomInterpolate(p0: p0, p1: p1, p2: p2, p3: p3, t: t)
+                    path.addLine(to: point)
+                }
             }
         }
         .stroke(
             isSelected ? hormone.color : Color.gray,
             style: StrokeStyle(
-                lineWidth: isSelected ? 3 : 1.5,
+                lineWidth: isSelected ? 2.5 : 1.5,
                 lineCap: .round,
                 lineJoin: .round
             )
         )
         .shadow(color: isSelected ? hormone.color.opacity(0.3) : Color.clear, radius: 4)
         .opacity(isSelected ? 1.0 : 0.4)
+    }
+    
+    // Catmull-Rom spline interpolation for smooth curves
+    private func catmullRomInterpolate(p0: CGPoint, p1: CGPoint, p2: CGPoint, p3: CGPoint, t: CGFloat) -> CGPoint {
+        let t2 = t * t
+        let t3 = t2 * t
+        
+        let v0 = (p2.x - p0.x) / 2.0
+        let v1 = (p3.x - p1.x) / 2.0
+        let x = (2 * p1.x - 2 * p2.x + v0 + v1) * t3 + (-3 * p1.x + 3 * p2.x - 2 * v0 - v1) * t2 + v0 * t + p1.x
+        
+        let v0y = (p2.y - p0.y) / 2.0
+        let v1y = (p3.y - p1.y) / 2.0
+        let y = (2 * p1.y - 2 * p2.y + v0y + v1y) * t3 + (-3 * p1.y + 3 * p2.y - 2 * v0y - v1y) * t2 + v0y * t + p1.y
+        
+        return CGPoint(x: x, y: y)
     }
     
     private func normalizeValue(_ value: Double, for hormone: HormoneChartView.HormoneType) -> Double {

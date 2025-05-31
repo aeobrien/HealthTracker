@@ -1,3 +1,5 @@
+// Replace your existing PeriodTrackingView.swift with this complete minimal version
+
 import SwiftUI
 import CoreData
 
@@ -17,6 +19,9 @@ struct PeriodTrackingView: View {
     @State private var estimatedNextPeriod: Date?
     @State private var currentCycleDay: Int = 0
     @State private var lastPeriodStart: Date?
+    
+    // Minimal UI state
+    @State private var expandedSections: Set<String> = ["status"] // Start with status expanded
     
     private let flowOptions = ["Spotting", "Light", "Medium", "Heavy"]
     
@@ -39,280 +44,458 @@ struct PeriodTrackingView: View {
     }
     
     var body: some View {
-        NavigationView {
-            ScrollView {
-                VStack(spacing: 20) {
-                    // Compact Date Picker (same as daily entry)
-                    VStack(alignment: .leading, spacing: 8) {
-                        HStack {
-                            Text("Date")
-                                .font(.headline)
-                            
-                            Spacer()
-                            
-                            Button(action: { showingDatePicker = true }) {
-                                HStack {
-                                    Text(selectedDate, formatter: compactDateFormatter)
-                                        .font(.body)
-                                        .foregroundColor(.blue)
-                                    Image(systemName: "calendar")
-                                        .foregroundColor(.blue)
-                                }
-                            }
-                        }
-                    }
-                    .padding()
-                    .background(Color(.systemGray6))
-                    .cornerRadius(12)
+        ZStack {
+            DesignSystem.Colors.screenBackground
+                .ignoresSafeArea()
+            
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: DesignSystem.Spacing.large) {
+                    // Header section
+                    headerSection
                     
-                    // Current Status & Next Period Prediction
-                    VStack(alignment: .leading, spacing: 16) {
-                        Text("Period Status")
-                            .font(.title2)
-                            .fontWeight(.semibold)
-                        
-                        // Status Toggle
-                        HStack {
-                            Text("Period Status:")
-                                .font(.headline)
-                            
-                            Spacer()
-                            
-                            Picker("Period Status", selection: $currentPeriodStatus) {
-                                Text("Off").tag(PeriodStatus.off)
-                                Text("On").tag(PeriodStatus.on)
-                            }
-                            .pickerStyle(SegmentedPickerStyle())
-                            .frame(width: 120)
-                        }
-                        
-                        // Cycle Information
-                        if let nextPeriod = estimatedNextPeriod {
-                            VStack(alignment: .leading, spacing: 8) {
-                                HStack {
-                                    Image(systemName: "calendar")
-                                        .foregroundColor(.pink)
-                                    Text("Next period predicted:")
-                                        .font(.body)
-                                        .foregroundColor(.secondary)
-                                    
-                                    Spacer()
-                                    
-                                    Text(nextPeriod, formatter: dateFormatter)
-                                        .font(.body)
-                                        .fontWeight(.medium)
-                                        .foregroundColor(.pink)
-                                }
-                                
-                                if currentCycleDay > 0 {
-                                    HStack {
-                                        Image(systemName: "clock")
-                                            .foregroundColor(.blue)
-                                        Text("Day \(currentCycleDay) of cycle")
-                                            .font(.body)
-                                            .foregroundColor(.blue)
-                                        
-                                        Spacer()
-                                    }
-                                }
-                            }
-                        }
-                        
-                        Button(action: logPeriodStatus) {
-                            Text(currentPeriodStatus == .on ? "Log Period Day" : "Log Off Day")
-                                .font(.headline)
-                                .foregroundColor(.white)
-                                .frame(maxWidth: .infinity)
-                                .padding()
-                                .background(currentPeriodStatus == .on ? Color.pink : Color.gray)
-                                .cornerRadius(12)
-                        }
-                    }
-                    .padding()
-                    .background(Color(.systemGray6))
-                    .cornerRadius(12)
+                    // Current status and cycle info
+                    statusSection
                     
-                    // Period Details (only show when period is on)
+                    // Period details (only when period is on)
                     if currentPeriodStatus == .on {
-                        VStack(alignment: .leading, spacing: 16) {
-                            Text("Period Details")
-                                .font(.title2)
-                                .fontWeight(.semibold)
-                            
-                            // Flow Selection
-                            VStack(alignment: .leading, spacing: 8) {
-                                Text("Flow")
-                                    .font(.headline)
-                                
-                                Picker("Flow", selection: $selectedFlow) {
-                                    ForEach(flowOptions, id: \.self) { flow in
-                                        HStack {
-                                            Text(flow)
-                                            Spacer()
-                                            Circle()
-                                                .fill(flowColor(for: flow))
-                                                .frame(width: 12, height: 12)
-                                        }
-                                        .tag(flow)
-                                    }
-                                }
-                                .pickerStyle(MenuPickerStyle())
-                            }
-                            
-                            // Period Symptoms with 1-5 scale
-                            VStack(alignment: .leading, spacing: 12) {
-                                Text("Symptoms")
-                                    .font(.headline)
-                                
-                                ForEach(periodSymptoms, id: \.self) { symptom in
-                                    EnhancedRatingSlider(
-                                        title: symptom,
-                                        value: Binding(
-                                            get: { selectedPeriodSymptoms[symptom] ?? 0 },
-                                            set: { selectedPeriodSymptoms[symptom] = $0 }
-                                        ),
-                                        color: .pink
-                                    )
-                                }
-                            }
-                        }
-                        .padding()
-                        .background(Color(.systemGray6))
-                        .cornerRadius(12)
+                        periodDetailsSection
                     }
                     
-                    // Emotions/Mood (always visible)
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Emotions & Mood")
-                            .font(.title2)
-                            .fontWeight(.semibold)
-                        
-                        LazyVGrid(columns: [
-                            GridItem(.flexible()),
-                            GridItem(.flexible()),
-                            GridItem(.flexible())
-                        ], spacing: 8) {
-                            ForEach(emotions, id: \.self) { emotion in
-                                ToggleButton(
-                                    text: emotion,
-                                    isSelected: selectedEmotions.contains(emotion),
-                                    color: .purple
-                                ) {
-                                    if selectedEmotions.contains(emotion) {
-                                        selectedEmotions.remove(emotion)
-                                    } else {
-                                        selectedEmotions.insert(emotion)
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    .padding()
-                    .background(Color(.systemGray6))
-                    .cornerRadius(12)
+                    // Emotions and additional tracking
+                    emotionsSection
+                    additionalTrackingSection
+                    notesSection
                     
-                    // Discharge & Sexual Activity
-                    VStack(alignment: .leading, spacing: 16) {
-                        Text("Additional Tracking")
-                            .font(.title2)
-                            .fontWeight(.semibold)
-                        
-                        // Discharge Type
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Discharge Type")
-                                .font(.headline)
-                            
-                            Picker("Discharge", selection: $selectedDischarge) {
-                                ForEach(dischargeTypes, id: \.self) { discharge in
-                                    Text(discharge).tag(discharge)
-                                }
-                            }
-                            .pickerStyle(MenuPickerStyle())
-                        }
-                        
-                        // Sexual Activity
-                        Toggle("Sexual Activity", isOn: $sexualActivity)
-                            .font(.headline)
-                    }
-                    .padding()
-                    .background(Color(.systemGray6))
-                    .cornerRadius(12)
-                    
-                    // Notes
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Notes")
-                            .font(.headline)
-                        
-                        TextEditor(text: $notes)
-                            .frame(minHeight: 80)
-                            .padding(8)
-                            .background(Color(.systemGray5))
-                            .cornerRadius(8)
-                    }
-                    .padding()
-                    .background(Color(.systemGray6))
-                    .cornerRadius(12)
-                    
-                    // Recent Period History
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Recent Periods")
-                            .font(.title2)
-                            .fontWeight(.semibold)
-                        
-                        if periodEntries.isEmpty {
-                            Text("No period entries yet")
-                                .foregroundColor(.secondary)
-                                .padding()
-                        } else {
-                            ForEach(periodEntries.prefix(5), id: \.createdAt) { entry in
-                                PeriodEntryRow(entry: entry)
-                            }
-                        }
-                    }
-                    .padding()
-                    .background(Color(.systemGray6))
-                    .cornerRadius(12)
+                    // Recent history
+                    historySection
                 }
-                .padding()
+                .padding(DesignSystem.Spacing.large)
             }
-            .navigationTitle("Period Tracking")
-            .onAppear {
-                loadPeriodEntries()
-                calculateCycleInfo()
-                loadSelectedDateEntry()
-                debugPeriodData() // Add this line
-            }
-            .onChange(of: selectedDate) { _ in
+        }
+        .navigationBarHidden(true)
+        .onAppear {
+            print("DEBUG: Minimal PeriodTrackingView appeared")
+            loadPeriodEntries()
+            calculateCycleInfo()
+            loadSelectedDateEntry()
+            debugPeriodData()
+        }
+        .onChange(of: selectedDate) { _ in
+            loadSelectedDateEntry()
+        }
+        .sheet(isPresented: $showingDatePicker) {
+            MinimalDatePicker(selectedDate: $selectedDate) {
                 loadSelectedDateEntry()
             }
-            .sheet(isPresented: $showingDatePicker) {
-                DatePickerModal(selectedDate: $selectedDate) {
-                    loadSelectedDateEntry()
+        }
+        .alert("Period Entry Saved", isPresented: $showingSaveConfirmation) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text("Your period entry has been saved")
+        }
+    }
+    
+    // MARK: - Header Section
+    
+    private var headerSection: some View {
+        MinimalCard {
+            VStack(spacing: DesignSystem.Spacing.medium) {
+                HStack {
+                    VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
+                        Text("Period Tracking")
+                            .font(DesignSystem.Typography.largeTitle)
+                            .foregroundColor(DesignSystem.Colors.primaryText)
+                        
+                        Text(selectedDate, formatter: subtleDateFormatter)
+                            .font(DesignSystem.Typography.caption)
+                            .foregroundColor(DesignSystem.Colors.secondaryText)
+                    }
+                    
+                    Spacer()
+                    
+                    DelicateButton(title: "Date", action: { showingDatePicker = true }, style: .subtle)
                 }
-            }
-            .alert("Period Entry Saved", isPresented: $showingSaveConfirmation) {
-                Button("OK", role: .cancel) { }
-            } message: {
-                Text("Your period entry has been saved successfully.")
             }
         }
     }
     
-    // Replace the logPeriodStatus function in your PeriodTrackingView with this updated version:
+    // MARK: - Status Section
+    
+    private var statusSection: some View {
+        CollapsibleSection(
+            title: "Period Status",
+            subtitle: statusSubtitle,
+            isExpanded: expandedSections.contains("status"),
+            color: DesignSystem.Colors.softPink
+        ) {
+            toggleSection("status")
+        } content: {
+            VStack(spacing: DesignSystem.Spacing.large) {
+                // Status toggle
+                VStack(alignment: .leading, spacing: DesignSystem.Spacing.medium) {
+                    Text("Current Status")
+                        .font(DesignSystem.Typography.body)
+                        .foregroundColor(DesignSystem.Colors.primaryText)
+                    
+                    HStack(spacing: DesignSystem.Spacing.xs) {
+                        ForEach(["Off", "On"], id: \.self) { status in
+                            let isSelected = (status == "On" && currentPeriodStatus == .on) || (status == "Off" && currentPeriodStatus == .off)
+                            
+                            Button(action: {
+                                currentPeriodStatus = status == "On" ? .on : .off
+                            }) {
+                                Text(status)
+                                    .font(DesignSystem.Typography.body)
+                                    .foregroundColor(isSelected ? DesignSystem.Colors.softPink : DesignSystem.Colors.secondaryText)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.horizontal, DesignSystem.Spacing.large)
+                                    .padding(.vertical, DesignSystem.Spacing.medium)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 12)
+                                            .fill(isSelected ? DesignSystem.Colors.softPink.opacity(0.1) : Color.clear)
+                                            .overlay(
+                                                RoundedRectangle(cornerRadius: 12)
+                                                    .stroke(isSelected ? DesignSystem.Colors.softPink.opacity(0.4) : DesignSystem.Colors.tertiaryText, lineWidth: 0.5)
+                                            )
+                                    )
+                            }
+                        }
+                    }
+                }
+                
+                // Cycle information
+                if let nextPeriod = estimatedNextPeriod {
+                    VStack(spacing: DesignSystem.Spacing.medium) {
+                        HStack {
+                            Image(systemName: "calendar.circle")
+                                .foregroundColor(DesignSystem.Colors.softPink)
+                                .font(.title3)
+                            
+                            VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
+                                Text("Next period predicted")
+                                    .font(DesignSystem.Typography.caption)
+                                    .foregroundColor(DesignSystem.Colors.secondaryText)
+                                
+                                Text(nextPeriod, formatter: dateFormatter)
+                                    .font(DesignSystem.Typography.body)
+                                    .fontWeight(.medium)
+                                    .foregroundColor(DesignSystem.Colors.softPink)
+                            }
+                            
+                            Spacer()
+                            
+                            if currentCycleDay > 0 {
+                                VStack(alignment: .trailing, spacing: DesignSystem.Spacing.xs) {
+                                    Text("Cycle day")
+                                        .font(DesignSystem.Typography.caption)
+                                        .foregroundColor(DesignSystem.Colors.secondaryText)
+                                    
+                                    Text("\(currentCycleDay)")
+                                        .font(DesignSystem.Typography.title)
+                                        .fontWeight(.light)
+                                        .foregroundColor(DesignSystem.Colors.primaryBlue)
+                                }
+                            }
+                        }
+                        
+                        DelicateButton(
+                            title: currentPeriodStatus == .on ? "Log Period Day" : "Log Off Day",
+                            action: logPeriodStatus,
+                            style: .secondary
+                        )
+                    }
+                }
+            }
+        }
+    }
+    
+    // MARK: - Period Details Section
+    
+    private var periodDetailsSection: some View {
+        CollapsibleSection(
+            title: "Period Details",
+            subtitle: periodDetailsSubtitle,
+            isExpanded: expandedSections.contains("details"),
+            color: DesignSystem.Colors.softPink
+        ) {
+            toggleSection("details")
+        } content: {
+            VStack(spacing: DesignSystem.Spacing.large) {
+                // Flow selection
+                VStack(alignment: .leading, spacing: DesignSystem.Spacing.medium) {
+                    Text("Flow Intensity")
+                        .font(DesignSystem.Typography.body)
+                        .foregroundColor(DesignSystem.Colors.primaryText)
+                    
+                    HStack(spacing: DesignSystem.Spacing.xs) {
+                        ForEach(flowOptions, id: \.self) { flow in
+                            Button(action: { selectedFlow = flow }) {
+                                HStack(spacing: DesignSystem.Spacing.xs) {
+                                    Circle()
+                                        .fill(flowColor(for: flow))
+                                        .frame(width: 8, height: 8)
+                                    
+                                    Text(flow)
+                                        .font(DesignSystem.Typography.caption)
+                                        .foregroundColor(selectedFlow == flow ? DesignSystem.Colors.softPink : DesignSystem.Colors.secondaryText)
+                                }
+                                .padding(.horizontal, DesignSystem.Spacing.small)
+                                .padding(.vertical, DesignSystem.Spacing.xs)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .fill(selectedFlow == flow ? DesignSystem.Colors.softPink.opacity(0.1) : Color.clear)
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 8)
+                                                .stroke(selectedFlow == flow ? DesignSystem.Colors.softPink.opacity(0.4) : DesignSystem.Colors.tertiaryText, lineWidth: 0.5)
+                                        )
+                                )
+                            }
+                        }
+                    }
+                }
+                
+                // Period symptoms
+                VStack(alignment: .leading, spacing: DesignSystem.Spacing.medium) {
+                    Text("Symptoms")
+                        .font(DesignSystem.Typography.body)
+                        .foregroundColor(DesignSystem.Colors.primaryText)
+                    
+                    VStack(spacing: DesignSystem.Spacing.medium) {
+                        ForEach(periodSymptoms, id: \.self) { symptom in
+                            MinimalSlider(
+                                title: symptom,
+                                value: Binding(
+                                    get: { selectedPeriodSymptoms[symptom] ?? 0 },
+                                    set: { selectedPeriodSymptoms[symptom] = $0 }
+                                ),
+                                range: 0...5,
+                                step: 1,
+                                unit: "/5",
+                                color: DesignSystem.Colors.softPink
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    // MARK: - Emotions Section
+    
+    private var emotionsSection: some View {
+        CollapsibleSection(
+            title: "Emotions & Mood",
+            subtitle: emotionsSubtitle,
+            isExpanded: expandedSections.contains("emotions"),
+            color: DesignSystem.Colors.lightLavender
+        ) {
+            toggleSection("emotions")
+        } content: {
+            LazyVGrid(columns: [
+                GridItem(.flexible()),
+                GridItem(.flexible()),
+                GridItem(.flexible())
+            ], spacing: DesignSystem.Spacing.small) {
+                ForEach(emotions, id: \.self) { emotion in
+                    SimpleToggleChip(
+                        text: emotion,
+                        isSelected: selectedEmotions.contains(emotion),
+                        color: DesignSystem.Colors.lightLavender
+                    ) {
+                        toggleEmotion(emotion)
+                    }
+                }
+            }
+        }
+    }
+    
+    // MARK: - Additional Tracking Section
+    
+    private var additionalTrackingSection: some View {
+        CollapsibleSection(
+            title: "Additional Tracking",
+            subtitle: additionalTrackingSubtitle,
+            isExpanded: expandedSections.contains("additional"),
+            color: DesignSystem.Colors.mutedGreen
+        ) {
+            toggleSection("additional")
+        } content: {
+            VStack(spacing: DesignSystem.Spacing.large) {
+                // Discharge type
+                VStack(alignment: .leading, spacing: DesignSystem.Spacing.medium) {
+                    Text("Discharge Type")
+                        .font(DesignSystem.Typography.body)
+                        .foregroundColor(DesignSystem.Colors.primaryText)
+                    
+                    LazyVGrid(columns: [
+                        GridItem(.flexible()),
+                        GridItem(.flexible()),
+                        GridItem(.flexible())
+                    ], spacing: DesignSystem.Spacing.small) {
+                        ForEach(dischargeTypes, id: \.self) { discharge in
+                            SimpleToggleChip(
+                                text: discharge,
+                                isSelected: selectedDischarge == discharge,
+                                color: DesignSystem.Colors.mutedGreen
+                            ) {
+                                selectedDischarge = discharge
+                            }
+                        }
+                    }
+                }
+                
+                // Sexual activity
+                HStack {
+                    Text("Sexual Activity")
+                        .font(DesignSystem.Typography.body)
+                        .foregroundColor(DesignSystem.Colors.primaryText)
+                    
+                    Spacer()
+                    
+                    Toggle("", isOn: $sexualActivity)
+                        .tint(DesignSystem.Colors.mutedGreen)
+                }
+            }
+        }
+    }
+    
+    // MARK: - Notes Section
+    
+    private var notesSection: some View {
+        MinimalCard {
+            VStack(alignment: .leading, spacing: DesignSystem.Spacing.medium) {
+                Text("Notes")
+                    .font(DesignSystem.Typography.body)
+                    .foregroundColor(DesignSystem.Colors.primaryText)
+                
+                TextField("How are you feeling today?", text: $notes, axis: .vertical)
+                    .font(DesignSystem.Typography.body)
+                    .textFieldStyle(PlainTextFieldStyle())
+                    .lineLimit(3...6)
+                    .padding(DesignSystem.Spacing.small)
+                    .background(
+                        RoundedRectangle(cornerRadius: 8)
+                            .stroke(DesignSystem.Colors.tertiaryText, lineWidth: 0.5)
+                    )
+            }
+        }
+    }
+    
+    // MARK: - History Section
+    
+    private var historySection: some View {
+        CollapsibleSection(
+            title: "Recent Periods",
+            subtitle: historySubtitle,
+            isExpanded: expandedSections.contains("history"),
+            color: DesignSystem.Colors.primaryBlue
+        ) {
+            toggleSection("history")
+        } content: {
+            VStack(spacing: DesignSystem.Spacing.medium) {
+                if periodEntries.isEmpty {
+                    Text("No period entries yet")
+                        .font(DesignSystem.Typography.caption)
+                        .foregroundColor(DesignSystem.Colors.secondaryText)
+                        .padding()
+                } else {
+                    ForEach(periodEntries.prefix(5), id: \.createdAt) { entry in
+                        MinimalPeriodEntryRow(entry: entry)
+                    }
+                }
+            }
+        }
+    }
+    
+    // MARK: - Computed Properties
+    
+    private var statusSubtitle: String {
+        if currentPeriodStatus == .on {
+            return "Period is currently on"
+        } else {
+            return "Period is currently off"
+        }
+    }
+    
+    private var periodDetailsSubtitle: String {
+        if currentPeriodStatus == .on {
+            let trackedSymptoms = selectedPeriodSymptoms.values.filter { $0 > 0 }.count
+            return "\(selectedFlow) flow, \(trackedSymptoms) symptoms"
+        }
+        return "Not applicable"
+    }
+    
+    private var emotionsSubtitle: String {
+        return selectedEmotions.isEmpty ? "No emotions selected" : "\(selectedEmotions.count) emotions tracked"
+    }
+    
+    private var additionalTrackingSubtitle: String {
+        var items: [String] = []
+        if selectedDischarge != "None" { items.append("discharge") }
+        if sexualActivity { items.append("sexual activity") }
+        return items.isEmpty ? "Nothing tracked" : items.joined(separator: ", ")
+    }
+    
+    private var historySubtitle: String {
+        return periodEntries.isEmpty ? "No entries yet" : "\(periodEntries.count) entries"
+    }
+    
+    private var subtleDateFormatter: DateFormatter {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "EEEE, MMMM d"
+        return formatter
+    }
+    
+    private var dateFormatter: DateFormatter {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        return formatter
+    }
+    
+    // MARK: - Actions
+    
+    private func toggleSection(_ section: String) {
+        print("DEBUG: Toggling section: \(section)")
+        withAnimation(.easeInOut(duration: 0.3)) {
+            if expandedSections.contains(section) {
+                expandedSections.remove(section)
+            } else {
+                expandedSections.insert(section)
+            }
+        }
+    }
+    
+    private func toggleEmotion(_ emotion: String) {
+        if selectedEmotions.contains(emotion) {
+            selectedEmotions.remove(emotion)
+        } else {
+            selectedEmotions.insert(emotion)
+        }
+    }
+    
+    private func flowColor(for flow: String) -> Color {
+        switch flow {
+        case "Spotting": return DesignSystem.Colors.softPink.opacity(0.3)
+        case "Light": return DesignSystem.Colors.softPink.opacity(0.5)
+        case "Medium": return DesignSystem.Colors.softPink.opacity(0.7)
+        case "Heavy": return DesignSystem.Colors.softPink
+        default: return DesignSystem.Colors.tertiaryText
+        }
+    }
+    
+    // MARK: - Data Management (keeping your existing logic)
     
     private func logPeriodStatus() {
         print("DEBUG: Logging period status: \(currentPeriodStatus)")
         
         let periodEntry = PeriodEntry(context: viewContext)
-        periodEntry.startDate = selectedDate // Use selected date instead of current date
+        periodEntry.startDate = selectedDate
         periodEntry.flow = currentPeriodStatus == .on ? selectedFlow : nil
         periodEntry.createdAt = Date()
         
-        // Store period status in notes for now (in full implementation, add a status field)
         var entryNotes = currentPeriodStatus == .on ? "Status: On" : "Status: Off"
         
         if currentPeriodStatus == .on {
-            // Add period-specific data
             let symptomsData = selectedPeriodSymptoms.compactMapValues { $0 > 0 ? $0 : nil }
             if !symptomsData.isEmpty {
                 let symptomsJSON = encodePeriodSymptoms(symptomsData)
@@ -320,12 +503,10 @@ struct PeriodTrackingView: View {
             }
         }
         
-        // Add emotions
         if !selectedEmotions.isEmpty {
             entryNotes += "\nEmotions: \(selectedEmotions.joined(separator: ", "))"
         }
         
-        // Add discharge and sexual activity
         entryNotes += "\nDischarge: \(selectedDischarge)"
         entryNotes += "\nSexual Activity: \(sexualActivity ? "Yes" : "No")"
         
@@ -339,13 +520,9 @@ struct PeriodTrackingView: View {
             try viewContext.save()
             print("DEBUG: Period entry saved successfully")
             
-            // Reset form to defaults after successful save
             resetPeriodFormToDefaults()
-            
-            // Reload data
             loadPeriodEntries()
             calculateCycleInfo()
-            
             showingSaveConfirmation = true
         } catch {
             print("DEBUG ERROR: Failed to save period entry: \(error)")
@@ -354,23 +531,11 @@ struct PeriodTrackingView: View {
     
     private func resetPeriodFormToDefaults() {
         print("DEBUG: Resetting period form to defaults")
-        
-        // Reset period symptoms
         selectedPeriodSymptoms.removeAll()
-        
-        // Reset emotions
         selectedEmotions.removeAll()
-        
-        // Reset discharge and sexual activity
         selectedDischarge = "None"
         sexualActivity = false
-        
-        // Reset notes
         notes = ""
-        
-        // Keep the period status and flow as they were set by the user
-        // since they might want to log multiple days with the same status
-        
         print("DEBUG: Period form reset completed")
     }
     
@@ -395,18 +560,14 @@ struct PeriodTrackingView: View {
             return
         }
         
-        // Find the most recent "On" entry that starts a new cycle
         var lastCycleStart: Date?
         
         for (index, entry) in periodEntries.enumerated() {
             if let notes = entry.notes, notes.contains("Status: On") {
-                // Check if this is the start of a new cycle
                 if index == periodEntries.count - 1 {
-                    // This is the oldest entry and it's "On"
                     lastCycleStart = entry.startDate
                     break
                 } else {
-                    // Check if previous entry was "Off" or more than 7 days ago
                     let previousEntry = periodEntries[index + 1]
                     let daysBetween = Calendar.current.dateComponents([.day], from: previousEntry.startDate, to: entry.startDate).day ?? 0
                     
@@ -420,20 +581,14 @@ struct PeriodTrackingView: View {
         
         if let cycleStart = lastCycleStart {
             lastPeriodStart = cycleStart
-            
-            // Calculate current cycle day
             let daysSinceStart = Calendar.current.dateComponents([.day], from: cycleStart, to: Date()).day ?? 0
             currentCycleDay = daysSinceStart + 1
-            
-            // Predict next period (28-day cycle)
             estimatedNextPeriod = Calendar.current.date(byAdding: .day, value: 28, to: cycleStart)
-            
             print("DEBUG: Last cycle started on \(cycleStart), current day: \(currentCycleDay)")
         }
     }
     
     private func loadSelectedDateEntry() {
-        // Load entries for the selected date to pre-fill form if already logged
         let calendar = Calendar.current
         let startOfDay = calendar.startOfDay(for: selectedDate)
         let endOfDay = calendar.date(byAdding: .day, value: 1, to: startOfDay)!
@@ -443,7 +598,6 @@ struct PeriodTrackingView: View {
         }
         
         if let latestEntry = dateEntries.first {
-            // Pre-fill form with selected date's data
             if let notes = latestEntry.notes {
                 currentPeriodStatus = notes.contains("Status: On") ? .on : .off
                 
@@ -451,11 +605,9 @@ struct PeriodTrackingView: View {
                     selectedFlow = flow
                 }
                 
-                // Parse other data from notes
                 parseEntryNotes(notes)
             }
         } else {
-            // Reset form for new entry
             currentPeriodStatus = .off
             selectedFlow = "Medium"
             selectedPeriodSymptoms.removeAll()
@@ -466,14 +618,7 @@ struct PeriodTrackingView: View {
         }
     }
     
-    private var compactDateFormatter: DateFormatter {
-        let formatter = DateFormatter()
-        formatter.dateStyle = .medium
-        return formatter
-    }
-    
     private func parseEntryNotes(_ notes: String) {
-        // Simple parsing - in full implementation, these would be separate Core Data fields
         let lines = notes.components(separatedBy: "\n")
         
         for line in lines {
@@ -501,176 +646,167 @@ struct PeriodTrackingView: View {
         }
     }
     
-    private func flowColor(for flow: String) -> Color {
-        switch flow {
-        case "Spotting": return .pink.opacity(0.3)
-        case "Light": return .pink.opacity(0.5)
-        case "Medium": return .pink.opacity(0.7)
-        case "Heavy": return .pink
-        default: return .gray
-        }
-    }
-    
-    private var dateFormatter: DateFormatter {
-        let formatter = DateFormatter()
-        formatter.dateStyle = .medium
-        return formatter
-    }
     private func debugPeriodData() {
-           print("=== PERIOD TRACKING VIEW - DEBUG PERIOD DATA ANALYSIS ===")
-           
-           let request: NSFetchRequest<PeriodEntry> = PeriodEntry.fetchRequest()
-           request.sortDescriptors = [NSSortDescriptor(keyPath: \PeriodEntry.startDate, ascending: false)]
-           
-           do {
-               let allEntries = try viewContext.fetch(request)
-               print("DEBUG: Total period entries in database: \(allEntries.count)")
-               print("DEBUG: Period entries state variable count: \(periodEntries.count)")
-               
-               for (index, entry) in allEntries.enumerated() {
-                   print("DEBUG Entry \(index + 1):")
-                   print("  - Date: \(entry.startDate)")
-                   print("  - Notes: \(entry.notes ?? "No notes")")
-                   print("  - Flow: \(entry.flow ?? "No flow")")
-                   print("  - Created: \(entry.createdAt)")
-                   
-                   if let notes = entry.notes {
-                       if notes.contains("Status: On") {
-                           print("  ➤ This is an ON entry")
-                       } else if notes.contains("Status: Off") {
-                           print("  ➤ This is an OFF entry")
-                       } else {
-                           print("  ➤ Status unclear from notes")
-                       }
-                   }
-               }
-               
-               print("=== CYCLE CALCULATION DEBUG ===")
-               debugCycleCalculation()
-               
-           } catch {
-               print("DEBUG ERROR: Failed to fetch period entries: \(error)")
-           }
-       }
-       
-       private func debugCycleCalculation() {
-           guard !periodEntries.isEmpty else {
-               print("DEBUG: No period entries found for cycle calculation")
-               return
-           }
-           
-           print("DEBUG: Analyzing \(periodEntries.count) period entries for cycle calculation")
-           
-           var lastCycleStart: Date?
-           
-           for (index, entry) in periodEntries.enumerated() {
-               print("DEBUG: Entry \(index + 1) - Date: \(entry.startDate)")
-               
-               if let notes = entry.notes {
-                   print("  Notes: \(notes)")
-                   
-                   if notes.contains("Status: On") {
-                       print("  ➤ Found ON entry")
-                       
-                       // Check if this is the start of a new cycle
-                       if index == periodEntries.count - 1 {
-                           print("  ➤ This is the oldest entry and it's ON - using as cycle start")
-                           lastCycleStart = entry.startDate
-                           break
-                       } else {
-                           let previousEntry = periodEntries[index + 1]
-                           let daysBetween = Calendar.current.dateComponents([.day], from: previousEntry.startDate, to: entry.startDate).day ?? 0
-                           
-                           print("  ➤ Days between this and previous entry: \(daysBetween)")
-                           
-                           if let prevNotes = previousEntry.notes {
-                               print("  ➤ Previous entry notes: \(prevNotes)")
-                           }
-                           
-                           if daysBetween > 7 || (previousEntry.notes?.contains("Status: Off") == true) {
-                               print("  ➤ This appears to be a new cycle start")
-                               lastCycleStart = entry.startDate
-                               break
-                           } else {
-                               print("  ➤ This appears to be continuation of same period")
-                           }
-                       }
-                   }
-               }
-           }
-           
-           if let cycleStart = lastCycleStart {
-               let daysSinceStart = Calendar.current.dateComponents([.day], from: cycleStart, to: Date()).day ?? 0
-               let calculatedDay = (daysSinceStart % 28) + 1
-               
-               print("DEBUG: Cycle start found: \(cycleStart)")
-               print("DEBUG: Days since start: \(daysSinceStart)")
-               print("DEBUG: Calculated cycle day: \(calculatedDay)")
-               print("DEBUG: Current cycle day state variable: \(currentCycleDay)")
-               print("DEBUG: Estimated next period: \(estimatedNextPeriod?.description ?? "None")")
-           } else {
-               print("DEBUG: No valid cycle start found")
-           }
-       }
-    
-}
-
-struct PeriodEntryRow: View {
-    let entry: PeriodEntry
-    
-    var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack {
-                Text(entry.startDate, formatter: dateFormatter)
-                    .font(.headline)
-                
-                Spacer()
+        print("=== PERIOD TRACKING VIEW - DEBUG PERIOD DATA ANALYSIS ===")
+        
+        let request: NSFetchRequest<PeriodEntry> = PeriodEntry.fetchRequest()
+        request.sortDescriptors = [NSSortDescriptor(keyPath: \PeriodEntry.startDate, ascending: false)]
+        
+        do {
+            let allEntries = try viewContext.fetch(request)
+            print("DEBUG: Total period entries in database: \(allEntries.count)")
+            print("DEBUG: Period entries state variable count: \(periodEntries.count)")
+            
+            for (index, entry) in allEntries.enumerated() {
+                print("DEBUG Entry \(index + 1):")
+                print("  - Date: \(entry.startDate)")
+                print("  - Notes: \(entry.notes ?? "No notes")")
+                print("  - Flow: \(entry.flow ?? "No flow")")
+                print("  - Created: \(entry.createdAt)")
                 
                 if let notes = entry.notes {
                     if notes.contains("Status: On") {
-                        HStack {
+                        print("  ➤ This is an ON entry")
+                    } else if notes.contains("Status: Off") {
+                        print("  ➤ This is an OFF entry")
+                    } else {
+                        print("  ➤ Status unclear from notes")
+                    }
+                }
+            }
+            
+            print("=== CYCLE CALCULATION DEBUG ===")
+            debugCycleCalculation()
+            
+        } catch {
+            print("DEBUG ERROR: Failed to fetch period entries: \(error)")
+        }
+    }
+    
+    private func debugCycleCalculation() {
+        guard !periodEntries.isEmpty else {
+            print("DEBUG: No period entries found for cycle calculation")
+            return
+        }
+        
+        print("DEBUG: Analyzing \(periodEntries.count) period entries for cycle calculation")
+        
+        var lastCycleStart: Date?
+        
+        for (index, entry) in periodEntries.enumerated() {
+            print("DEBUG: Entry \(index + 1) - Date: \(entry.startDate)")
+            
+            if let notes = entry.notes {
+                print("  Notes: \(notes)")
+                
+                if notes.contains("Status: On") {
+                    print("  ➤ Found ON entry")
+                    
+                    if index == periodEntries.count - 1 {
+                        print("  ➤ This is the oldest entry and it's ON - using as cycle start")
+                        lastCycleStart = entry.startDate
+                        break
+                    } else {
+                        let previousEntry = periodEntries[index + 1]
+                        let daysBetween = Calendar.current.dateComponents([.day], from: previousEntry.startDate, to: entry.startDate).day ?? 0
+                        
+                        print("  ➤ Days between this and previous entry: \(daysBetween)")
+                        
+                        if let prevNotes = previousEntry.notes {
+                            print("  ➤ Previous entry notes: \(prevNotes)")
+                        }
+                        
+                        if daysBetween > 7 || (previousEntry.notes?.contains("Status: Off") == true) {
+                            print("  ➤ This appears to be a new cycle start")
+                            lastCycleStart = entry.startDate
+                            break
+                        } else {
+                            print("  ➤ This appears to be continuation of same period")
+                        }
+                    }
+                }
+            }
+        }
+        
+        if let cycleStart = lastCycleStart {
+            let daysSinceStart = Calendar.current.dateComponents([.day], from: cycleStart, to: Date()).day ?? 0
+            let calculatedDay = (daysSinceStart % 28) + 1
+            
+            print("DEBUG: Cycle start found: \(cycleStart)")
+            print("DEBUG: Days since start: \(daysSinceStart)")
+            print("DEBUG: Calculated cycle day: \(calculatedDay)")
+            print("DEBUG: Current cycle day state variable: \(currentCycleDay)")
+            print("DEBUG: Estimated next period: \(estimatedNextPeriod?.description ?? "None")")
+        } else {
+            print("DEBUG: No valid cycle start found")
+        }
+    }
+}
+
+// MARK: - Supporting Views
+
+struct MinimalPeriodEntryRow: View {
+    let entry: PeriodEntry
+    
+    var body: some View {
+        HStack {
+            VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
+                Text(entry.startDate, formatter: dateFormatter)
+                    .font(DesignSystem.Typography.body)
+                    .fontWeight(.medium)
+                    .foregroundColor(DesignSystem.Colors.primaryText)
+                
+                if let notes = entry.notes {
+                    let displayNotes = extractDisplayNotes(from: notes)
+                    if !displayNotes.isEmpty {
+                        Text(displayNotes)
+                            .font(DesignSystem.Typography.caption)
+                            .foregroundColor(DesignSystem.Colors.secondaryText)
+                            .lineLimit(2)
+                    }
+                }
+            }
+            
+            Spacer()
+            
+            HStack(spacing: DesignSystem.Spacing.small) {
+                if let notes = entry.notes {
+                    if notes.contains("Status: On") {
+                        HStack(spacing: DesignSystem.Spacing.xs) {
                             Circle()
-                                .fill(Color.pink)
-                                .frame(width: 8, height: 8)
+                                .fill(DesignSystem.Colors.softPink)
+                                .frame(width: 6, height: 6)
                             Text("On")
-                                .font(.caption)
-                                .foregroundColor(.pink)
+                                .font(DesignSystem.Typography.micro)
+                                .foregroundColor(DesignSystem.Colors.softPink)
                         }
                     } else {
-                        HStack {
+                        HStack(spacing: DesignSystem.Spacing.xs) {
                             Circle()
-                                .fill(Color.gray)
-                                .frame(width: 8, height: 8)
+                                .fill(DesignSystem.Colors.tertiaryText)
+                                .frame(width: 6, height: 6)
                             Text("Off")
-                                .font(.caption)
-                                .foregroundColor(.gray)
+                                .font(DesignSystem.Typography.micro)
+                                .foregroundColor(DesignSystem.Colors.tertiaryText)
                         }
                     }
                 }
                 
                 if let flow = entry.flow {
                     Text(flow)
-                        .font(.caption)
-                        .padding(.horizontal, 8)
+                        .font(DesignSystem.Typography.micro)
+                        .padding(.horizontal, DesignSystem.Spacing.xs)
                         .padding(.vertical, 2)
-                        .background(Color.pink.opacity(0.2))
-                        .cornerRadius(8)
-                }
-            }
-            
-            if let notes = entry.notes {
-                let displayNotes = extractDisplayNotes(from: notes)
-                if !displayNotes.isEmpty {
-                    Text(displayNotes)
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                        .lineLimit(2)
+                        .background(DesignSystem.Colors.softPink.opacity(0.1))
+                        .foregroundColor(DesignSystem.Colors.softPink)
+                        .cornerRadius(6)
                 }
             }
         }
-        .padding()
-        .background(Color(.systemBackground))
-        .cornerRadius(8)
+        .padding(DesignSystem.Spacing.medium)
+        .background(DesignSystem.Colors.cardBackground)
+        .cornerRadius(12)
+        .shadow(color: DesignSystem.Shadows.subtle, radius: 2, x: 0, y: 1)
     }
     
     private func extractDisplayNotes(from notes: String) -> String {
@@ -678,7 +814,7 @@ struct PeriodEntryRow: View {
         var displayLines: [String] = []
         
         for line in lines {
-            if line.hasPrefix("Emotions: ") && !line.hasPrefix("Emotions: ") {
+            if line.hasPrefix("Emotions: ") && !line.hasSuffix("Emotions: ") {
                 displayLines.append(line)
             } else if line.hasPrefix("Notes: ") {
                 displayLines.append(String(line.dropFirst(7)))
@@ -695,4 +831,3 @@ struct PeriodEntryRow: View {
         return formatter
     }
 }
-

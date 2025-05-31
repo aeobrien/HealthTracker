@@ -4,12 +4,16 @@ import CoreData
 struct SleepTrackingView: View {
     @Environment(\.managedObjectContext) private var viewContext
     @State private var selectedDate = Date()
+    @State private var showingDatePicker = false
     @State private var hoursSlept: Double = 8.0
-    @State private var sleepQuality: Double = 7.0
+    @State private var sleepQuality: Double = 3.0
     @State private var selectedDisturbances: Set<String> = []
     @State private var notes = ""
     @State private var showingSaveConfirmation = false
     @State private var recentSleepEntries: [SleepEntry] = []
+    
+    // Minimal UI state
+    @State private var expandedSections: Set<String> = ["sleep", "quality"] // Start with main sections expanded
     
     private let sleepDisturbances = [
         "Difficulty falling asleep",
@@ -27,208 +31,307 @@ struct SleepTrackingView: View {
     ]
     
     var body: some View {
-        NavigationView {
-            ScrollView {
-                VStack(spacing: 20) {
-                    // Date Selection
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Sleep Date")
-                            .font(.headline)
-                        
-                        DatePicker("Select Date", selection: $selectedDate, displayedComponents: .date)
-                            .datePickerStyle(CompactDatePickerStyle())
-                            .onChange(of: selectedDate) { _ in
-                                loadExistingSleepEntry()
-                            }
-                    }
-                    .padding()
-                    .background(Color(.systemGray6))
-                    .cornerRadius(12)
+        ZStack {
+            DesignSystem.Colors.screenBackground
+                .ignoresSafeArea()
+            
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: DesignSystem.Spacing.large) {
+                    // Header section
+                    headerSection
                     
-                    // Sleep Duration
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Sleep Duration")
-                            .font(.headline)
-                        
-                        VStack(spacing: 8) {
-                            HStack {
-                                Text("Hours Slept")
-                                    .font(.body)
-                                
-                                Spacer()
-                                
-                                Text(String(format: "%.1f hours", hoursSlept))
-                                    .font(.headline)
-                                    .foregroundColor(.blue)
-                            }
-                            
-                            Slider(
-                                value: $hoursSlept,
-                                in: 0...12,
-                                step: 0.5
-                            ) {
-                                Text("Hours Slept")
-                            } minimumValueLabel: {
-                                Text("0h")
-                                    .font(.caption)
-                            } maximumValueLabel: {
-                                Text("12h")
-                                    .font(.caption)
-                            }
-                            .accentColor(.blue)
-                        }
-                    }
-                    .padding()
-                    .background(Color(.systemGray6))
-                    .cornerRadius(12)
+                    // Sleep Duration Section
+                    sleepDurationSection
                     
-                    // Sleep Quality
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Sleep Quality")
-                            .font(.headline)
-                        
-                        VStack(spacing: 8) {
-                            HStack {
-                                Text("Quality Rating")
-                                    .font(.body)
-                                
-                                Spacer()
-                                
-                                Text(qualityDescription(for: sleepQuality))
-                                    .font(.headline)
-                                    .foregroundColor(qualityColor(for: sleepQuality))
-                            }
-                            
-                            Slider(
-                                value: $sleepQuality,
-                                in: 1...10,
-                                step: 1
-                            ) {
-                                Text("Sleep Quality")
-                            } minimumValueLabel: {
-                                Text("1")
-                                    .font(.caption)
-                            } maximumValueLabel: {
-                                Text("10")
-                                    .font(.caption)
-                            }
-                            .accentColor(.blue)
-                        }
-                        
-                        HStack {
-                            Text("1 = Very Poor")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                            
-                            Spacer()
-                            
-                            Text("10 = Excellent")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        }
-                    }
-                    .padding()
-                    .background(Color(.systemGray6))
-                    .cornerRadius(12)
+                    // Sleep Quality Section
+                    sleepQualitySection
                     
-                    // Sleep Disturbances
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Sleep Disturbances")
-                            .font(.headline)
-                        
-                        LazyVGrid(columns: [
-                            GridItem(.flexible()),
-                            GridItem(.flexible())
-                        ], spacing: 8) {
-                            ForEach(sleepDisturbances, id: \.self) { disturbance in
-                                DisturbanceToggleButton(
-                                    disturbance: disturbance,
-                                    isSelected: selectedDisturbances.contains(disturbance)
-                                ) {
-                                    if selectedDisturbances.contains(disturbance) {
-                                        selectedDisturbances.remove(disturbance)
-                                    } else {
-                                        selectedDisturbances.insert(disturbance)
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    .padding()
-                    .background(Color(.systemGray6))
-                    .cornerRadius(12)
+                    // Sleep Disturbances Section
+                    sleepDisturbancesSection
                     
-                    // Notes
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Notes")
-                            .font(.headline)
-                        
-                        TextEditor(text: $notes)
-                            .frame(minHeight: 80)
-                            .padding(8)
-                            .background(Color(.systemGray5))
-                            .cornerRadius(8)
-                    }
-                    .padding()
-                    .background(Color(.systemGray6))
-                    .cornerRadius(12)
+                    // Notes Section
+                    notesSection
                     
                     // Save Button
-                    Button(action: saveSleepEntry) {
-                        Text("Save Sleep Entry")
-                            .font(.headline)
-                            .foregroundColor(.white)
-                            .frame(maxWidth: .infinity)
-                            .padding()
-                            .background(Color.indigo)
-                            .cornerRadius(12)
-                    }
-                    .padding(.horizontal)
+                    saveButton
                     
                     // Recent Sleep Trends
                     if !recentSleepEntries.isEmpty {
-                        VStack(alignment: .leading, spacing: 12) {
-                            Text("Recent Sleep")
-                                .font(.title2)
-                                .fontWeight(.semibold)
-                            
-                            ForEach(recentSleepEntries.prefix(7), id: \.createdAt) { entry in
-                                SleepEntryRow(entry: entry)
-                            }
-                            
-                            if let avgSleep = calculateAverageSleep() {
-                                HStack {
-                                    Text("7-day average:")
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
-                                    
-                                    Spacer()
-                                    
-                                    Text(String(format: "%.1f hours", avgSleep))
-                                        .font(.caption)
-                                        .fontWeight(.medium)
-                                        .foregroundColor(.blue)
-                                }
-                                .padding(.top, 8)
-                            }
-                        }
-                        .padding()
-                        .background(Color(.systemGray6))
-                        .cornerRadius(12)
+                        recentSleepSection
                     }
                 }
-                .padding()
+                .padding(DesignSystem.Spacing.large)
             }
-            .navigationTitle("Sleep Tracking")
-            .onAppear {
+        }
+        .navigationBarHidden(true)
+        .onAppear {
+            loadExistingSleepEntry()
+            loadRecentSleepEntries()
+        }
+        .sheet(isPresented: $showingDatePicker) {
+            MinimalDatePicker(selectedDate: $selectedDate) {
                 loadExistingSleepEntry()
-                loadRecentSleepEntries()
             }
-            .alert("Sleep Entry Saved", isPresented: $showingSaveConfirmation) {
-                Button("OK", role: .cancel) { }
-            } message: {
-                Text("Your sleep entry has been saved successfully.")
+        }
+        .alert("Sleep Entry Saved", isPresented: $showingSaveConfirmation) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text("Your sleep entry has been saved successfully.")
+        }
+    }
+    
+    // MARK: - Header Section
+    
+    private var headerSection: some View {
+        MinimalCard {
+            VStack(spacing: DesignSystem.Spacing.medium) {
+                HStack {
+                    VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
+                        Text("Sleep Tracking")
+                            .font(DesignSystem.Typography.largeTitle)
+                            .foregroundColor(DesignSystem.Colors.primaryText)
+                        
+                        Text(selectedDate, formatter: subtleDateFormatter)
+                            .font(DesignSystem.Typography.caption)
+                            .foregroundColor(DesignSystem.Colors.secondaryText)
+                    }
+                    
+                    Spacer()
+                    
+                    Button(action: { showingDatePicker = true }) {
+                        HStack(spacing: DesignSystem.Spacing.xs) {
+                            Image(systemName: "calendar")
+                                .font(.system(size: 14, weight: .light))
+                            Text("Date")
+                                .font(DesignSystem.Typography.body)
+                        }
+                        .foregroundColor(DesignSystem.Colors.secondaryText)
+                        .padding(.horizontal, DesignSystem.Spacing.medium)
+                        .padding(.vertical, DesignSystem.Spacing.small)
+                        .background(
+                            RoundedRectangle(cornerRadius: 12)
+                                .stroke(DesignSystem.Colors.tertiaryText, lineWidth: 0.5)
+                        )
+                    }
+                }
+                
+                // Quick status indicator
+                if hasAnyData {
+                    HStack {
+                        Circle()
+                            .fill(DesignSystem.Colors.mutedGreen)
+                            .frame(width: 6, height: 6)
+                        
+                        Text("Data recorded for this night")
+                            .font(DesignSystem.Typography.micro)
+                            .foregroundColor(DesignSystem.Colors.secondaryText)
+                        
+                        Spacer()
+                    }
+                }
             }
+        }
+    }
+    
+    // MARK: - Sleep Duration Section
+    
+    private var sleepDurationSection: some View {
+        CollapsibleSection(
+            title: "Sleep Duration",
+            subtitle: durationSubtitle,
+            isExpanded: expandedSections.contains("sleep"),
+            color: DesignSystem.Colors.softIndigo
+        ) {
+            toggleSection("sleep")
+        } content: {
+            MinimalSlider(
+                title: "Hours Slept",
+                value: $hoursSlept,
+                range: 0...12,
+                step: 0.5,
+                unit: "h",
+                color: DesignSystem.Colors.softIndigo
+            )
+        }
+    }
+    
+    // MARK: - Sleep Quality Section
+    
+    private var sleepQualitySection: some View {
+        CollapsibleSection(
+            title: "Sleep Quality",
+            subtitle: qualitySubtitle,
+            isExpanded: expandedSections.contains("quality"),
+            color: DesignSystem.Colors.softIndigo
+        ) {
+            toggleSection("quality")
+        } content: {
+            VStack(spacing: DesignSystem.Spacing.medium) {
+                MinimalSlider(
+                    title: "Quality Rating",
+                    value: $sleepQuality,
+                    range: 0...5,
+                    step: 1,
+                    unit: "/5",
+                    color: DesignSystem.Colors.softIndigo
+                )
+                
+                HStack {
+                    Text("1 = Very Poor")
+                        .font(DesignSystem.Typography.caption)
+                        .foregroundColor(DesignSystem.Colors.tertiaryText)
+                    
+                    Spacer()
+                    
+                    Text("5 = Excellent")
+                        .font(DesignSystem.Typography.caption)
+                        .foregroundColor(DesignSystem.Colors.tertiaryText)
+                }
+            }
+        }
+    }
+    
+    // MARK: - Sleep Disturbances Section
+    
+    private var sleepDisturbancesSection: some View {
+        CollapsibleSection(
+            title: "Sleep Disturbances",
+            subtitle: disturbancesSubtitle,
+            isExpanded: expandedSections.contains("disturbances"),
+            color: DesignSystem.Colors.lightLavender
+        ) {
+            toggleSection("disturbances")
+        } content: {
+            LazyVGrid(columns: [
+                GridItem(.flexible()),
+                GridItem(.flexible())
+            ], spacing: DesignSystem.Spacing.small) {
+                ForEach(sleepDisturbances, id: \.self) { disturbance in
+                    SimpleToggleChip(
+                        text: disturbance,
+                        isSelected: selectedDisturbances.contains(disturbance),
+                        color: DesignSystem.Colors.lightLavender
+                    ) {
+                        toggleDisturbance(disturbance)
+                    }
+                }
+            }
+        }
+    }
+    
+    // MARK: - Notes Section
+    
+    private var notesSection: some View {
+        MinimalCard {
+            VStack(alignment: .leading, spacing: DesignSystem.Spacing.medium) {
+                Text("Notes")
+                    .font(DesignSystem.Typography.body)
+                    .foregroundColor(DesignSystem.Colors.primaryText)
+                
+                TextField("Any additional notes about your sleep?", text: $notes, axis: .vertical)
+                    .font(DesignSystem.Typography.body)
+                    .textFieldStyle(PlainTextFieldStyle())
+                    .lineLimit(3...6)
+                    .padding(DesignSystem.Spacing.small)
+                    .background(
+                        RoundedRectangle(cornerRadius: 8)
+                            .stroke(DesignSystem.Colors.tertiaryText, lineWidth: 0.5)
+                    )
+            }
+        }
+    }
+    
+    // MARK: - Save Button
+    
+    private var saveButton: some View {
+        DelicateButton(
+            title: hasAnyData ? "Update Entry" : "Save Entry",
+            action: saveSleepEntry,
+            style: .primary
+        )
+        .padding(.horizontal, DesignSystem.Spacing.large)
+    }
+    
+    // MARK: - Recent Sleep Section
+    
+    private var recentSleepSection: some View {
+        MinimalCard {
+            VStack(alignment: .leading, spacing: DesignSystem.Spacing.medium) {
+                Text("Recent Sleep")
+                    .font(DesignSystem.Typography.headline)
+                    .foregroundColor(DesignSystem.Colors.primaryText)
+                
+                ForEach(recentSleepEntries.prefix(7), id: \.createdAt) { entry in
+                    MinimalSleepEntryRow(entry: entry)
+                }
+                
+                if let avgSleep = calculateAverageSleep() {
+                    HStack {
+                        Text("7-day average:")
+                            .font(DesignSystem.Typography.caption)
+                            .foregroundColor(DesignSystem.Colors.secondaryText)
+                        
+                        Spacer()
+                        
+                        Text(String(format: "%.1f hours", avgSleep))
+                            .font(DesignSystem.Typography.caption)
+                            .fontWeight(.medium)
+                            .foregroundColor(DesignSystem.Colors.softIndigo)
+                    }
+                    .padding(.top, DesignSystem.Spacing.small)
+                }
+            }
+        }
+    }
+    
+    // MARK: - Helper Views and Computed Properties
+    
+    private var hasAnyData: Bool {
+        hoursSlept != 8.0 ||
+        sleepQuality != 0 ||
+        !selectedDisturbances.isEmpty ||
+        !notes.isEmpty
+    }
+    
+    private var durationSubtitle: String {
+        return String(format: "%.1f hours", hoursSlept)
+    }
+    
+    private var qualitySubtitle: String {
+        if sleepQuality == 0 {
+            return "Not rated"
+        }
+        return "\(qualityDescription(for: sleepQuality)) (\(Int(sleepQuality))/5)"
+    }
+    
+    private var disturbancesSubtitle: String {
+        let count = selectedDisturbances.count
+        return count == 0 ? "None reported" : "\(count) disturbances"
+    }
+    
+    private var subtleDateFormatter: DateFormatter {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "EEEE, MMMM d"
+        return formatter
+    }
+    
+    // MARK: - Actions
+    
+    private func toggleSection(_ section: String) {
+        withAnimation(.easeInOut(duration: 0.3)) {
+            if expandedSections.contains(section) {
+                expandedSections.remove(section)
+            } else {
+                expandedSections.insert(section)
+            }
+        }
+    }
+    
+    private func toggleDisturbance(_ disturbance: String) {
+        if selectedDisturbances.contains(disturbance) {
+            selectedDisturbances.remove(disturbance)
+        } else {
+            selectedDisturbances.insert(disturbance)
         }
     }
     
@@ -258,7 +361,7 @@ struct SleepTrackingView: View {
             }
             
             sleepEntry.hoursSlept = hoursSlept
-            sleepEntry.sleepQuality = Int16(sleepQuality)
+            sleepEntry.sleepQuality = Int16(sleepQuality * 2) // Convert to 0-10 scale for storage
             sleepEntry.disturbances = encodeDisturbances(selectedDisturbances)
             sleepEntry.notes = notes.isEmpty ? nil : notes
             
@@ -289,13 +392,13 @@ struct SleepTrackingView: View {
             if let entry = entries.first {
                 print("DEBUG: Found existing sleep entry")
                 hoursSlept = entry.hoursSlept
-                sleepQuality = Double(entry.sleepQuality)
+                sleepQuality = Double(entry.sleepQuality) / 2.0 // Convert from 0-10 to 0-5
                 selectedDisturbances = decodeDisturbances(entry.disturbances) ?? []
                 notes = entry.notes ?? ""
             } else {
                 print("DEBUG: No existing sleep entry found, using defaults")
                 hoursSlept = 8.0
-                sleepQuality = 7.0
+                sleepQuality = 0
                 selectedDisturbances.removeAll()
                 notes = ""
             }
@@ -355,82 +458,55 @@ struct SleepTrackingView: View {
     
     private func qualityDescription(for quality: Double) -> String {
         switch Int(quality) {
-        case 1...2: return "Very Poor"
-        case 3...4: return "Poor"
-        case 5...6: return "Fair"
-        case 7...8: return "Good"
-        case 9...10: return "Excellent"
+        case 0: return "Not rated"
+        case 1: return "Very Poor"
+        case 2: return "Poor"
+        case 3: return "Fair"
+        case 4: return "Good"
+        case 5: return "Excellent"
         default: return "Unknown"
         }
     }
-    
-    private func qualityColor(for quality: Double) -> Color {
-        switch Int(quality) {
-        case 1...4: return .red
-        case 5...6: return .orange
-        case 7...8: return .blue
-        case 9...10: return .green
-        default: return .gray
-        }
-    }
 }
 
-struct DisturbanceToggleButton: View {
-    let disturbance: String
-    let isSelected: Bool
-    let action: () -> Void
-    
-    var body: some View {
-        Button(action: action) {
-            Text(disturbance)
-                .font(.caption)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
-                .background(isSelected ? Color.indigo : Color(.systemGray5))
-                .foregroundColor(isSelected ? .white : .primary)
-                .cornerRadius(12)
-                .multilineTextAlignment(.center)
-        }
-    }
-}
-
-struct SleepEntryRow: View {
+struct MinimalSleepEntryRow: View {
     let entry: SleepEntry
     
     var body: some View {
         HStack {
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
                 Text(entry.date, formatter: dateFormatter)
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+                    .font(DesignSystem.Typography.caption)
+                    .foregroundColor(DesignSystem.Colors.secondaryText)
                 
                 Text(String(format: "%.1f hours", entry.hoursSlept))
-                    .font(.body)
+                    .font(DesignSystem.Typography.body)
                     .fontWeight(.medium)
+                    .foregroundColor(DesignSystem.Colors.primaryText)
             }
             
             Spacer()
             
-            VStack(alignment: .trailing, spacing: 2) {
-                Text("Quality: \(entry.sleepQuality)")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+            VStack(alignment: .trailing, spacing: DesignSystem.Spacing.xs) {
+                Text("Quality: \(Int(entry.sleepQuality / 2))/5")
+                    .font(DesignSystem.Typography.caption)
+                    .foregroundColor(DesignSystem.Colors.secondaryText)
                 
                 Circle()
-                    .fill(qualityColor(for: Double(entry.sleepQuality)))
-                    .frame(width: 12, height: 12)
+                    .fill(qualityColor(for: Double(entry.sleepQuality) / 2))
+                    .frame(width: 8, height: 8)
             }
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, DesignSystem.Spacing.xs)
     }
     
     private func qualityColor(for quality: Double) -> Color {
         switch Int(quality) {
-        case 1...4: return .red
-        case 5...6: return .orange
-        case 7...8: return .blue
-        case 9...10: return .green
-        default: return .gray
+        case 0: return DesignSystem.Colors.tertiaryText
+        case 1...2: return DesignSystem.Colors.softPink
+        case 3: return DesignSystem.Colors.paleOrange
+        case 4...5: return DesignSystem.Colors.mutedGreen
+        default: return DesignSystem.Colors.tertiaryText
         }
     }
     

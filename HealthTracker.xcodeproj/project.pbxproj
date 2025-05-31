@@ -6,6 +6,10 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		DD6B727B2DE5B859008ECA6B /* DesignSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD6B727A2DE5B859008ECA6B /* DesignSystem.swift */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		DD6B724E2DE33C54008ECA6B /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -27,11 +31,25 @@
 		DD6B72402DE33C53008ECA6B /* HealthTracker.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = HealthTracker.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		DD6B724D2DE33C54008ECA6B /* HealthTrackerTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = HealthTrackerTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		DD6B72572DE33C54008ECA6B /* HealthTrackerUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = HealthTrackerUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		DD6B727A2DE5B859008ECA6B /* DesignSystem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignSystem.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		DDC5D10A2DEB250A002DFCAD /* Exceptions for "HealthTracker" folder in "HealthTracker" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = DD6B723F2DE33C53008ECA6B /* HealthTracker */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		DD6B72422DE33C53008ECA6B /* HealthTracker */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				DDC5D10A2DEB250A002DFCAD /* Exceptions for "HealthTracker" folder in "HealthTracker" target */,
+			);
 			path = HealthTracker;
 			sourceTree = "<group>";
 		};
@@ -75,6 +93,7 @@
 		DD6B72372DE33C53008ECA6B = {
 			isa = PBXGroup;
 			children = (
+				DD6B727A2DE5B859008ECA6B /* DesignSystem.swift */,
 				DD6B72422DE33C53008ECA6B /* HealthTracker */,
 				DD6B72502DE33C54008ECA6B /* HealthTrackerTests */,
 				DD6B725A2DE33C54008ECA6B /* HealthTrackerUITests */,
@@ -236,6 +255,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				DD6B727B2DE5B859008ECA6B /* DesignSystem.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -400,6 +420,7 @@
 				DEVELOPMENT_TEAM = 5R2D4Y969H;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = HealthTracker/Info.plist;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -428,6 +449,7 @@
 				DEVELOPMENT_TEAM = 5R2D4Y969H;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = HealthTracker/Info.plist;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;

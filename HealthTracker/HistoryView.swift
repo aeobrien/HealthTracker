@@ -15,343 +15,325 @@ struct HistoryView: View {
     @State private var sleepEntryToDelete: SleepEntry? = nil
     @State private var lifestyleEntryToDelete: LifestyleEntry? = nil
     
-    private let timeframes = ["Last 7 Days", "Last 30 Days", "Last 90 Days", "All Time"]
+    private let timeframes = ["7 days", "30 days", "90 days", "All time"]
     
     var body: some View {
-        NavigationView {
-            ScrollView {
-                VStack(spacing: 20) {
+        ZStack {
+            DesignSystem.Colors.screenBackground
+                .ignoresSafeArea()
+            
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: DesignSystem.Spacing.large) {
+                    // Header
+                    MinimalCard {
+                        VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
+                            Text("History")
+                                .font(DesignSystem.Typography.largeTitle)
+                                .foregroundColor(DesignSystem.Colors.primaryText)
+                            
+                            Text("Track your health trends over time")
+                                .font(DesignSystem.Typography.caption)
+                                .foregroundColor(DesignSystem.Colors.secondaryText)
+                        }
+                    }
+                    
                     // Timeframe Selection
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Timeframe")
-                            .font(.headline)
-                        
-                        Picker("Timeframe", selection: $selectedTimeframe) {
-                            ForEach(timeframes, id: \.self) { timeframe in
-                                Text(timeframe).tag(timeframe)
+                    MinimalCard {
+                        VStack(alignment: .leading, spacing: DesignSystem.Spacing.medium) {
+                            Text("Timeframe")
+                                .font(DesignSystem.Typography.body)
+                                .foregroundColor(DesignSystem.Colors.primaryText)
+                            
+                            HStack(spacing: DesignSystem.Spacing.xs) {
+                                ForEach(timeframes, id: \.self) { timeframe in
+                                    Button(action: {
+                                        selectedTimeframe = timeframe
+                                        loadHistoryData()
+                                    }) {
+                                        Text(timeframe)
+                                            .font(DesignSystem.Typography.caption)
+                                            .foregroundColor(selectedTimeframe == timeframe ? DesignSystem.Colors.primaryBlue : DesignSystem.Colors.secondaryText)
+                                            .padding(.horizontal, DesignSystem.Spacing.small)
+                                            .padding(.vertical, DesignSystem.Spacing.xs)
+                                            .background(
+                                                RoundedRectangle(cornerRadius: 8)
+                                                    .fill(selectedTimeframe == timeframe ? DesignSystem.Colors.primaryBlue.opacity(0.1) : Color.clear)
+                                                    .overlay(
+                                                        RoundedRectangle(cornerRadius: 8)
+                                                            .stroke(selectedTimeframe == timeframe ? DesignSystem.Colors.primaryBlue.opacity(0.4) : DesignSystem.Colors.tertiaryText, lineWidth: 0.5)
+                                                    )
+                                            )
+                                    }
+                                }
                             }
                         }
-                        .pickerStyle(SegmentedPickerStyle())
-                        .onChange(of: selectedTimeframe) { _ in
-                            print("DEBUG: Timeframe changed to: \(selectedTimeframe)")
-                            loadHistoryData()
-                        }
                     }
-                    .padding()
-                    .background(Color(.systemGray6))
-                    .cornerRadius(12)
                     
                     // Summary Statistics
-                    VStack(alignment: .leading, spacing: 16) {
-                        Text("Summary")
-                            .font(.title2)
-                            .fontWeight(.semibold)
-                        
-                        LazyVGrid(columns: [
-                            GridItem(.flexible()),
-                            GridItem(.flexible())
-                        ], spacing: 12) {
-                            SummaryCard(
-                                title: "Entries",
-                                value: "\(dailyEntries.count)",
-                                subtitle: "Daily logs",
-                                color: .blue
-                            )
+                    MinimalCard {
+                        VStack(alignment: .leading, spacing: DesignSystem.Spacing.large) {
+                            Text("Summary")
+                                .font(DesignSystem.Typography.headline)
+                                .foregroundColor(DesignSystem.Colors.primaryText)
                             
-                            SummaryCard(
-                                title: "Avg Sleep",
-                                value: averageSleepHours(),
-                                subtitle: "Hours per night",
-                                color: .indigo
-                            )
-                            
-                            SummaryCard(
-                                title: "Avg Stress",
-                                value: averageStressLevel(),
-                                subtitle: "Out of 10",
-                                color: .orange
-                            )
-                            
-                            SummaryCard(
-                                title: "Period Cycles",
-                                value: "\(periodEntries.count)",
-                                subtitle: "Tracked",
-                                color: .pink
-                            )
+                            LazyVGrid(columns: [
+                                GridItem(.flexible()),
+                                GridItem(.flexible())
+                            ], spacing: DesignSystem.Spacing.medium) {
+                                MinimalSummaryCard(
+                                    title: "Entries",
+                                    value: "\(dailyEntries.count)",
+                                    subtitle: "Daily logs",
+                                    color: DesignSystem.Colors.primaryBlue
+                                )
+                                
+                                MinimalSummaryCard(
+                                    title: "Avg Sleep",
+                                    value: averageSleepHours(),
+                                    subtitle: "Hours per night",
+                                    color: DesignSystem.Colors.softIndigo
+                                )
+                                
+                                MinimalSummaryCard(
+                                    title: "Avg Stress",
+                                    value: averageStressLevel(),
+                                    subtitle: "Out of 5",
+                                    color: DesignSystem.Colors.paleOrange
+                                )
+                                
+                                MinimalSummaryCard(
+                                    title: "Period Cycles",
+                                    value: "\(periodEntries.count)",
+                                    subtitle: "Tracked",
+                                    color: DesignSystem.Colors.softPink
+                                )
+                            }
                         }
                     }
-                    .padding()
-                    .background(Color(.systemGray6))
-                    .cornerRadius(12)
                     
                     // Most Common Symptoms
                     if !dailyEntries.isEmpty {
-                        VStack(alignment: .leading, spacing: 12) {
-                            Text("Most Common Symptoms")
-                                .font(.title2)
-                                .fontWeight(.semibold)
-                            
-                            ForEach(getTopSymptoms(limit: 5), id: \.name) { symptomData in
-                                SymptomFrequencyRow(symptomData: symptomData)
+                        MinimalCard {
+                            VStack(alignment: .leading, spacing: DesignSystem.Spacing.medium) {
+                                Text("Most Common Symptoms")
+                                    .font(DesignSystem.Typography.headline)
+                                    .foregroundColor(DesignSystem.Colors.primaryText)
+                                
+                                ForEach(getTopSymptoms(limit: 5), id: \.name) { symptomData in
+                                    MinimalSymptomFrequencyRow(symptomData: symptomData)
+                                }
                             }
                         }
-                        .padding()
-                        .background(Color(.systemGray6))
-                        .cornerRadius(12)
                     }
                     
                     // Sleep Quality Trends
                     if !sleepEntries.isEmpty {
-                        VStack(alignment: .leading, spacing: 12) {
-                            Text("Sleep Quality Trends")
-                                .font(.title2)
-                                .fontWeight(.semibold)
-                            
-                            let sleepQualityStats = calculateSleepQualityStats()
-                            
-                            HStack {
-                                VStack(alignment: .leading) {
-                                    Text("Best Quality")
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
-                                    Text("\(sleepQualityStats.best)/10")
-                                        .font(.headline)
-                                        .foregroundColor(.green)
-                                }
+                        MinimalCard {
+                            VStack(alignment: .leading, spacing: DesignSystem.Spacing.medium) {
+                                Text("Sleep Quality Trends")
+                                    .font(DesignSystem.Typography.headline)
+                                    .foregroundColor(DesignSystem.Colors.primaryText)
                                 
-                                Spacer()
+                                let sleepQualityStats = calculateSleepQualityStats()
                                 
-                                VStack(alignment: .center) {
-                                    Text("Average")
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
-                                    Text(String(format: "%.1f/10", sleepQualityStats.average))
-                                        .font(.headline)
-                                        .foregroundColor(.blue)
-                                }
-                                
-                                Spacer()
-                                
-                                VStack(alignment: .trailing) {
-                                    Text("Worst Quality")
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
-                                    Text("\(sleepQualityStats.worst)/10")
-                                        .font(.headline)
-                                        .foregroundColor(.red)
+                                HStack {
+                                    VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
+                                        Text("Best Quality")
+                                            .font(DesignSystem.Typography.caption)
+                                            .foregroundColor(DesignSystem.Colors.secondaryText)
+                                        Text("\(sleepQualityStats.best)/5")
+                                            .font(DesignSystem.Typography.body)
+                                            .fontWeight(.medium)
+                                            .foregroundColor(DesignSystem.Colors.mutedGreen)
+                                    }
+                                    
+                                    Spacer()
+                                    
+                                    VStack(alignment: .center, spacing: DesignSystem.Spacing.xs) {
+                                        Text("Average")
+                                            .font(DesignSystem.Typography.caption)
+                                            .foregroundColor(DesignSystem.Colors.secondaryText)
+                                        Text(String(format: "%.1f/5", sleepQualityStats.average / 2))
+                                            .font(DesignSystem.Typography.body)
+                                            .fontWeight(.medium)
+                                            .foregroundColor(DesignSystem.Colors.primaryBlue)
+                                    }
+                                    
+                                    Spacer()
+                                    
+                                    VStack(alignment: .trailing, spacing: DesignSystem.Spacing.xs) {
+                                        Text("Worst Quality")
+                                            .font(DesignSystem.Typography.caption)
+                                            .foregroundColor(DesignSystem.Colors.secondaryText)
+                                        Text("\(sleepQualityStats.worst / 2)/5")
+                                            .font(DesignSystem.Typography.body)
+                                            .fontWeight(.medium)
+                                            .foregroundColor(DesignSystem.Colors.softPink)
+                                    }
                                 }
                             }
                         }
-                        .padding()
-                        .background(Color(.systemGray6))
-                        .cornerRadius(12)
                     }
                     
                     // Lifestyle Patterns
                     if !lifestyleEntries.isEmpty {
-                        VStack(alignment: .leading, spacing: 12) {
-                            Text("Lifestyle Patterns")
-                                .font(.title2)
-                                .fontWeight(.semibold)
-                            
-                            let lifestyleStats = calculateLifestyleStats()
-                            
-                            VStack(spacing: 8) {
-                                HStack {
-                                    Text("Most Common Caffeine:")
-                                        .font(.body)
-                                    Spacer()
-                                    Text(lifestyleStats.avgCaffeine)
-                                        .font(.body)
-                                        .fontWeight(.medium)
-                                        .foregroundColor(.brown)
-                                }
+                        MinimalCard {
+                            VStack(alignment: .leading, spacing: DesignSystem.Spacing.medium) {
+                                Text("Lifestyle Patterns")
+                                    .font(DesignSystem.Typography.headline)
+                                    .foregroundColor(DesignSystem.Colors.primaryText)
                                 
-                                HStack {
-                                    Text("Most Common Water:")
-                                        .font(.body)
-                                    Spacer()
-                                    Text(lifestyleStats.avgWater)
-                                        .font(.body)
-                                        .fontWeight(.medium)
-                                        .foregroundColor(.blue)
-                                }
+                                let lifestyleStats = calculateLifestyleStats()
                                 
-                                HStack {
-                                    Text("Most Common Exercise:")
-                                        .font(.body)
-                                    Spacer()
-                                    Text(lifestyleStats.avgExercise)
-                                        .font(.body)
-                                        .fontWeight(.medium)
-                                        .foregroundColor(.green)
-                                }
-                                
-                                HStack {
-                                    Text("Average Stress:")
-                                        .font(.body)
-                                    Spacer()
-                                    Text(lifestyleStats.avgStress)
-                                        .font(.body)
-                                        .fontWeight(.medium)
-                                        .foregroundColor(.orange)
-                                }
-                                
-                                HStack {
-                                    Text("High Stress Days:")
-                                        .font(.body)
-                                    Spacer()
-                                    Text("\(lifestyleStats.highStressDays)")
-                                        .font(.body)
-                                        .fontWeight(.medium)
-                                        .foregroundColor(.red)
+                                VStack(spacing: DesignSystem.Spacing.medium) {
+                                    MinimalStatRow(label: "Most Common Caffeine", value: lifestyleStats.avgCaffeine, color: DesignSystem.Colors.paleOrange)
+                                    MinimalStatRow(label: "Most Common Water", value: lifestyleStats.avgWater, color: DesignSystem.Colors.primaryBlue)
+                                    MinimalStatRow(label: "Most Common Exercise", value: lifestyleStats.avgExercise, color: DesignSystem.Colors.mutedGreen)
+                                    MinimalStatRow(label: "Average Stress", value: lifestyleStats.avgStress, color: DesignSystem.Colors.paleOrange)
+                                    MinimalStatRow(label: "High Stress Days", value: "\(lifestyleStats.highStressDays)", color: DesignSystem.Colors.softPink)
                                 }
                             }
                         }
-                        .padding()
-                        .background(Color(.systemGray6))
-                        .cornerRadius(12)
                     }
                     
                     // Recent Period Information
                     if !periodEntries.isEmpty {
-                        VStack(alignment: .leading, spacing: 12) {
-                            Text("Period Information")
-                                .font(.title2)
-                                .fontWeight(.semibold)
-                            
-                            ForEach(periodEntries.prefix(3), id: \.createdAt) { entry in
-                                VStack {
-                                    HStack {
-                                        PeriodSummaryRow(entry: entry)
+                        MinimalCard {
+                            VStack(alignment: .leading, spacing: DesignSystem.Spacing.medium) {
+                                Text("Period Information")
+                                    .font(DesignSystem.Typography.headline)
+                                    .foregroundColor(DesignSystem.Colors.primaryText)
+                                
+                                ForEach(periodEntries.prefix(3), id: \.createdAt) { entry in
+                                    VStack {
+                                        HStack {
+                                            MinimalPeriodSummaryRow(entry: entry)
+                                            
+                                            Spacer()
+                                            
+                                            Button(action: {
+                                                print("DEBUG: Delete button tapped for period entry: \(entry.startDate)")
+                                                periodEntryToDelete = entry
+                                                showingDeleteAlert = true
+                                            }) {
+                                                Image(systemName: "trash")
+                                                    .foregroundColor(DesignSystem.Colors.softPink)
+                                                    .font(.system(size: 14, weight: .light))
+                                                    .padding(DesignSystem.Spacing.small)
+                                                    .background(
+                                                        Circle()
+                                                            .fill(DesignSystem.Colors.softPink.opacity(0.1))
+                                                    )
+                                            }
+                                        }
+                                        .padding(DesignSystem.Spacing.medium)
+                                        .background(DesignSystem.Colors.screenBackground)
+                                        .cornerRadius(8)
                                         
-                                        Spacer()
-                                        
-                                        Button(action: {
-                                            print("DEBUG: Delete button tapped for period entry: \(entry.startDate)")
-                                            periodEntryToDelete = entry
-                                            showingDeleteAlert = true
-                                        }) {
-                                            Image(systemName: "trash.fill")
-                                                .foregroundColor(.white)
-                                                .font(.system(size: 14))
-                                                .padding(8)
-                                                .background(Color.red)
-                                                .clipShape(Circle())
+                                        if entry != periodEntries.prefix(3).last {
+                                            Rectangle()
+                                                .fill(DesignSystem.Colors.tertiaryText.opacity(0.3))
+                                                .frame(height: 0.5)
+                                                .padding(.horizontal, DesignSystem.Spacing.medium)
                                         }
                                     }
-                                    .padding()
-                                    .background(Color(.systemBackground))
-                                    .cornerRadius(8)
-                                    
-                                    if entry != periodEntries.prefix(3).last {
-                                        Divider()
-                                            .padding(.horizontal)
-                                    }
                                 }
-                            }
-                            
-                            if let cycleStats = calculateCycleStats() {
-                                HStack {
-                                    Text("Average Cycle Length:")
-                                        .font(.body)
-                                        .foregroundColor(.secondary)
-                                    
-                                    Spacer()
-                                    
-                                    Text("\(cycleStats) days")
-                                        .font(.body)
-                                        .fontWeight(.medium)
-                                        .foregroundColor(.pink)
+                                
+                                if let cycleStats = calculateCycleStats() {
+                                    MinimalStatRow(
+                                        label: "Average Cycle Length",
+                                        value: "\(cycleStats) days",
+                                        color: DesignSystem.Colors.softPink
+                                    )
+                                    .padding(.top, DesignSystem.Spacing.small)
                                 }
-                                .padding(.top, 8)
                             }
                         }
-                        .padding()
-                        .background(Color(.systemGray6))
-                        .cornerRadius(12)
                     }
                     
                     // Recent Entries with Delete Options
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Recent Daily Entries")
-                            .font(.title2)
-                            .fontWeight(.semibold)
-                        
-                        if dailyEntries.isEmpty {
-                            Text("No daily entries yet")
-                                .foregroundColor(.secondary)
-                                .padding()
-                        } else {
-                            ForEach(dailyEntries.prefix(5), id: \.createdAt) { entry in
-                                VStack {
-                                    HStack {
-                                        VStack(alignment: .leading, spacing: 4) {
-                                            Text(entry.date, formatter: shortDateFormatter)
-                                                .font(.headline)
-                                            
-                                            if let notes = entry.notes {
-                                                Text(notes.components(separatedBy: "\n").first ?? notes)
-                                                    .font(.caption)
-                                                    .foregroundColor(.secondary)
-                                                    .lineLimit(1)
+                    MinimalCard {
+                        VStack(alignment: .leading, spacing: DesignSystem.Spacing.medium) {
+                            Text("Recent Daily Entries")
+                                .font(DesignSystem.Typography.headline)
+                                .foregroundColor(DesignSystem.Colors.primaryText)
+                            
+                            if dailyEntries.isEmpty {
+                                Text("No daily entries yet")
+                                    .font(DesignSystem.Typography.body)
+                                    .foregroundColor(DesignSystem.Colors.secondaryText)
+                                    .padding(DesignSystem.Spacing.medium)
+                            } else {
+                                ForEach(dailyEntries.prefix(5), id: \.createdAt) { entry in
+                                    VStack {
+                                        HStack {
+                                            VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
+                                                Text(entry.date, formatter: shortDateFormatter)
+                                                    .font(DesignSystem.Typography.body)
+                                                    .fontWeight(.medium)
+                                                    .foregroundColor(DesignSystem.Colors.primaryText)
+                                                
+                                                if let notes = entry.notes {
+                                                    Text(notes.components(separatedBy: "\n").first ?? notes)
+                                                        .font(DesignSystem.Typography.caption)
+                                                        .foregroundColor(DesignSystem.Colors.secondaryText)
+                                                        .lineLimit(1)
+                                                }
+                                                
+                                                if let ratings = entry.symptomRatings as? Set<SymptomRating>, !ratings.isEmpty {
+                                                    Text("\(ratings.count) symptoms tracked")
+                                                        .font(DesignSystem.Typography.caption)
+                                                        .foregroundColor(DesignSystem.Colors.primaryBlue)
+                                                }
                                             }
                                             
-                                            if let ratings = entry.symptomRatings as? Set<SymptomRating>, !ratings.isEmpty {
-                                                Text("\(ratings.count) symptoms tracked")
-                                                    .font(.caption)
-                                                    .foregroundColor(.blue)
+                                            Spacer()
+                                            
+                                            Button(action: {
+                                                print("DEBUG: Delete button tapped for daily entry: \(entry.date)")
+                                                dailyEntryToDelete = entry
+                                                showingDeleteAlert = true
+                                            }) {
+                                                Image(systemName: "trash")
+                                                    .foregroundColor(DesignSystem.Colors.softPink)
+                                                    .font(.system(size: 14, weight: .light))
+                                                    .padding(DesignSystem.Spacing.small)
+                                                    .background(
+                                                        Circle()
+                                                            .fill(DesignSystem.Colors.softPink.opacity(0.1))
+                                                    )
                                             }
                                         }
+                                        .padding(DesignSystem.Spacing.medium)
+                                        .background(DesignSystem.Colors.screenBackground)
+                                        .cornerRadius(8)
                                         
-                                        Spacer()
-                                        
-                                        Button(action: {
-                                            print("DEBUG: Delete button tapped for daily entry: \(entry.date)")
-                                            dailyEntryToDelete = entry
-                                            showingDeleteAlert = true
-                                        }) {
-                                            Image(systemName: "trash.fill")
-                                                .foregroundColor(.white)
-                                                .font(.system(size: 14))
-                                                .padding(8)
-                                                .background(Color.red)
-                                                .clipShape(Circle())
+                                        if entry != dailyEntries.prefix(5).last {
+                                            Rectangle()
+                                                .fill(DesignSystem.Colors.tertiaryText.opacity(0.3))
+                                                .frame(height: 0.5)
+                                                .padding(.horizontal, DesignSystem.Spacing.medium)
                                         }
-                                    }
-                                    .padding()
-                                    .background(Color(.systemBackground))
-                                    .cornerRadius(8)
-                                    
-                                    if entry != dailyEntries.prefix(5).last {
-                                        Divider()
-                                            .padding(.horizontal)
                                     }
                                 }
                             }
                         }
                     }
-                    .padding()
-                    .background(Color(.systemGray6))
-                    .cornerRadius(12)
                     
-                    Button(action: {
-                        print("DEBUG: Export button tapped")
-                        showingExportSheet = true
-                    }) {
-                        Label("Export Data", systemImage: "square.and.arrow.up")
-                            .font(.headline)
-                            .foregroundColor(.white)
-                            .frame(maxWidth: .infinity)
-                            .padding()
-                            .background(Color.blue)
-                            .cornerRadius(12)
-                    }
-                    .padding(.horizontal)
+                    DelicateButton(
+                        title: "Export Data",
+                        action: {
+                            print("DEBUG: Export button tapped")
+                            showingExportSheet = true
+                        },
+                        style: .primary
+                    )
+                    .padding(.horizontal, DesignSystem.Spacing.large)
                 }
-                .padding()
+                .padding(DesignSystem.Spacing.large)
             }
-            .navigationTitle("History")
+        }
+        .navigationBarHidden(true)
             .onAppear {
                 print("DEBUG: HistoryView appeared")
                 loadHistoryData()
@@ -386,7 +368,6 @@ struct HistoryView: View {
                     Text("Are you sure you want to delete this entry?")
                 }
             }
-        }
     }
     
     private func loadHistoryData() {
@@ -432,13 +413,13 @@ struct HistoryView: View {
         let now = Date()
         
         switch selectedTimeframe {
-        case "Last 7 Days":
+        case "7 days":
             return calendar.date(byAdding: .day, value: -7, to: now) ?? now
-        case "Last 30 Days":
+        case "30 days":
             return calendar.date(byAdding: .day, value: -30, to: now) ?? now
-        case "Last 90 Days":
+        case "90 days":
             return calendar.date(byAdding: .day, value: -90, to: now) ?? now
-        default: // All Time
+        default: // All time
             return calendar.date(byAdding: .year, value: -10, to: now) ?? now
         }
     }
@@ -664,113 +645,141 @@ struct HistoryView: View {
     }
 }
 
-struct SummaryCard: View {
+struct MinimalSummaryCard: View {
     let title: String
     let value: String
     let subtitle: String
     let color: Color
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
             Text(title)
-                .font(.caption)
-                .foregroundColor(.secondary)
+                .font(DesignSystem.Typography.micro)
+                .foregroundColor(DesignSystem.Colors.secondaryText)
+                .textCase(.uppercase)
+                .tracking(0.5)
             
             Text(value)
-                .font(.title2)
-                .fontWeight(.bold)
+                .font(DesignSystem.Typography.title)
+                .fontWeight(.light)
                 .foregroundColor(color)
             
             Text(subtitle)
-                .font(.caption)
-                .foregroundColor(.secondary)
+                .font(DesignSystem.Typography.caption)
+                .foregroundColor(DesignSystem.Colors.tertiaryText)
         }
-        .padding()
-        .background(Color(.systemBackground))
+        .padding(DesignSystem.Spacing.medium)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(DesignSystem.Colors.screenBackground)
         .cornerRadius(8)
+        .shadow(color: DesignSystem.Shadows.subtle, radius: 2, x: 0, y: 1)
     }
 }
 
-struct SymptomFrequencyRow: View {
+struct MinimalStatRow: View {
+    let label: String
+    let value: String
+    let color: Color
+    
+    var body: some View {
+        HStack {
+            Text(label)
+                .font(DesignSystem.Typography.body)
+                .foregroundColor(DesignSystem.Colors.primaryText)
+            
+            Spacer()
+            
+            Text(value)
+                .font(DesignSystem.Typography.body)
+                .fontWeight(.medium)
+                .foregroundColor(color)
+        }
+    }
+}
+
+struct MinimalSymptomFrequencyRow: View {
     let symptomData: (name: String, frequency: Int, averageRating: Double)
     
     var body: some View {
         HStack {
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
                 Text(symptomData.name)
-                    .font(.body)
-                    .fontWeight(.medium)
+                    .font(DesignSystem.Typography.body)
+                    .foregroundColor(DesignSystem.Colors.primaryText)
                 
                 Text("\(symptomData.frequency) occurrences")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+                    .font(DesignSystem.Typography.caption)
+                    .foregroundColor(DesignSystem.Colors.secondaryText)
             }
             
             Spacer()
             
-            VStack(alignment: .trailing, spacing: 2) {
+            VStack(alignment: .trailing, spacing: DesignSystem.Spacing.xs) {
                 Text(String(format: "%.1f", symptomData.averageRating))
-                    .font(.headline)
-                    .foregroundColor(.blue)
+                    .font(DesignSystem.Typography.body)
+                    .fontWeight(.medium)
+                    .foregroundColor(DesignSystem.Colors.primaryBlue)
                 
                 Text("avg rating")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+                    .font(DesignSystem.Typography.caption)
+                    .foregroundColor(DesignSystem.Colors.tertiaryText)
             }
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, DesignSystem.Spacing.xs)
     }
 }
 
-struct PeriodSummaryRow: View {
+struct MinimalPeriodSummaryRow: View {
     let entry: PeriodEntry
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
             HStack {
                 Text(entry.startDate, formatter: dateFormatter)
-                    .font(.body)
+                    .font(DesignSystem.Typography.body)
                     .fontWeight(.medium)
+                    .foregroundColor(DesignSystem.Colors.primaryText)
                 
                 Spacer()
                 
                 if let notes = entry.notes {
                     if notes.contains("Status: On") {
-                        HStack {
+                        HStack(spacing: DesignSystem.Spacing.xs) {
                             Circle()
-                                .fill(Color.pink)
-                                .frame(width: 8, height: 8)
+                                .fill(DesignSystem.Colors.softPink)
+                                .frame(width: 6, height: 6)
                             Text("On")
-                                .font(.caption)
-                                .foregroundColor(.pink)
+                                .font(DesignSystem.Typography.caption)
+                                .foregroundColor(DesignSystem.Colors.softPink)
                         }
                     } else {
-                        HStack {
+                        HStack(spacing: DesignSystem.Spacing.xs) {
                             Circle()
-                                .fill(Color.gray)
-                                .frame(width: 8, height: 8)
+                                .fill(DesignSystem.Colors.tertiaryText)
+                                .frame(width: 6, height: 6)
                             Text("Off")
-                                .font(.caption)
-                                .foregroundColor(.gray)
+                                .font(DesignSystem.Typography.caption)
+                                .foregroundColor(DesignSystem.Colors.tertiaryText)
                         }
                     }
                 }
                 
                 if let flow = entry.flow {
                     Text(flow)
-                        .font(.caption)
-                        .padding(.horizontal, 8)
+                        .font(DesignSystem.Typography.micro)
+                        .padding(.horizontal, DesignSystem.Spacing.small)
                         .padding(.vertical, 2)
-                        .background(Color.pink.opacity(0.2))
-                        .cornerRadius(8)
+                        .background(DesignSystem.Colors.softPink.opacity(0.1))
+                        .foregroundColor(DesignSystem.Colors.softPink)
+                        .cornerRadius(6)
                 }
             }
             
             if let endDate = entry.endDate {
                 let duration = Calendar.current.dateComponents([.day], from: entry.startDate, to: endDate).day ?? 0
                 Text("Duration: \(duration + 1) days")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+                    .font(DesignSystem.Typography.caption)
+                    .foregroundColor(DesignSystem.Colors.secondaryText)
             }
         }
     }

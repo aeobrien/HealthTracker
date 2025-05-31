@@ -1,3 +1,6 @@
+// Replace your existing DailyTrackingView.swift with this cleaned version
+// Make sure you've added the DesignSystem.swift file to your project first
+
 import SwiftUI
 import CoreData
 
@@ -12,7 +15,6 @@ struct DailyTrackingView: View {
     @State private var showingSaveConfirmation = false
     @State private var isLoading = true
     @State private var showingEditModal = false
-    @State private var customTags: [String] = []
     @State private var selectedTags: Set<String> = []
     @State private var newTagText = ""
     @State private var allTags: [String] = []
@@ -21,21 +23,21 @@ struct DailyTrackingView: View {
     
     // Sleep tracking
     @State private var hoursSlept: Double = 8.0
-    @State private var sleepQuality: Double = 0 // 0 = N/A, 1-5 = rating
+    @State private var sleepQuality: Double = 0
     @State private var selectedDisturbances: Set<String> = []
     
     // Lifestyle tracking
-    @State private var caffeineIntake = "N/A" // N/A, Low, Medium, High
+    @State private var caffeineIntake = "N/A"
     @State private var alcoholIntake = "N/A"
     @State private var waterIntake = "N/A"
     @State private var exerciseLevel = "N/A"
-    @State private var energyLevel: Double = 0 // 0 = N/A, 1-5 = rating
-    @State private var stressLevel: Double = 0 // 0 = N/A, 1-5 = rating
+    @State private var energyLevel: Double = 0
+    @State private var stressLevel: Double = 0
     @State private var selectedMedications: Set<String> = []
     @State private var selectedDietaryTriggers: Set<String> = []
     
-    // Visibility settings
-    @State private var visibilitySettings = VisibilitySettings()
+    // Minimal UI state
+    @State private var expandedSections: Set<String> = ["symptoms"] // Start with symptoms expanded
     
     private let sleepDisturbances = [
         "Difficulty falling asleep", "Woke up frequently", "Woke up too early",
@@ -53,350 +55,498 @@ struct DailyTrackingView: View {
     ]
     
     var body: some View {
-        NavigationView {
-            ScrollView {
-                VStack(spacing: 20) {
-                    // Compact Date Picker
-                    VStack(alignment: .leading, spacing: 8) {
-                        HStack {
-                            Text("Date")
-                                .font(.headline)
-                            
-                            Spacer()
-                            
-                            Button(action: { showingDatePicker = true }) {
-                                HStack {
-                                    Text(selectedDate, formatter: compactDateFormatter)
-                                        .font(.body)
-                                        .foregroundColor(.blue)
-                                    Image(systemName: "calendar")
-                                        .foregroundColor(.blue)
-                                }
-                            }
-                        }
-                    }
-                    .padding()
-                    .background(Color(.systemGray6))
-                    .cornerRadius(12)
+        ZStack {
+            DesignSystem.Colors.screenBackground
+                .ignoresSafeArea()
+            
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: DesignSystem.Spacing.large) {
+                    // Minimal header with date
+                    headerSection
                     
                     if isLoading {
-                        ProgressView("Loading...")
-                            .padding()
+                        loadingView
                     } else {
-                        // Symptoms Section
-                        if visibilitySettings.showSymptoms {
-                            VStack(alignment: .leading, spacing: 16) {
-                                Text("Symptoms")
-                                    .font(.title2)
-                                    .fontWeight(.semibold)
-                                
-                                ForEach(Array(groupedSymptoms.keys.sorted()), id: \.self) { category in
-                                    SymptomCategorySection(
-                                        category: category,
-                                        symptoms: groupedSymptoms[category] ?? [],
-                                        ratings: $symptomRatings
-                                    )
-                                }
-                            }
-                            .padding()
-                            .background(Color(.systemGray6))
-                            .cornerRadius(12)
-                        }
+                        // Core sections - only show what's essential
+                        symptomsSection
+                        sleepSection
+                        lifestyleSection
+                        tagsAndNotesSection
                         
-                        // Sleep Section
-                        if visibilitySettings.showSleep {
-                            VStack(alignment: .leading, spacing: 16) {
-                                Text("Sleep")
-                                    .font(.title2)
-                                    .fontWeight(.semibold)
-                                
-                                // Sleep Duration
-                                VStack(alignment: .leading, spacing: 8) {
-                                    HStack {
-                                        Text("Hours Slept")
-                                            .font(.body)
-                                        
-                                        Spacer()
-                                        
-                                        Text(String(format: "%.1f hours", hoursSlept))
-                                            .font(.headline)
-                                            .foregroundColor(.blue)
-                                    }
-                                    
-                                    Slider(value: $hoursSlept, in: 0...12, step: 0.5) {
-                                        Text("Hours Slept")
-                                    } minimumValueLabel: {
-                                        Text("0h").font(.caption)
-                                    } maximumValueLabel: {
-                                        Text("12h").font(.caption)
-                                    }
-                                }
-                                
-                                // Sleep Quality
-                                EnhancedRatingSlider(
-                                    title: "Sleep Quality",
-                                    value: $sleepQuality,
-                                    color: .indigo
-                                )
-                                
-                                // Sleep Disturbances
-                                VStack(alignment: .leading, spacing: 8) {
-                                    Text("Sleep Disturbances")
-                                        .font(.body)
-                                        .fontWeight(.medium)
-                                    
-                                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
-                                        ForEach(sleepDisturbances, id: \.self) { disturbance in
-                                            ToggleButton(
-                                                text: disturbance,
-                                                isSelected: selectedDisturbances.contains(disturbance),
-                                                color: .indigo
-                                            ) {
-                                                if selectedDisturbances.contains(disturbance) {
-                                                    selectedDisturbances.remove(disturbance)
-                                                } else {
-                                                    selectedDisturbances.insert(disturbance)
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                            .padding()
-                            .background(Color(.systemGray6))
-                            .cornerRadius(12)
-                        }
-                        
-                        // Lifestyle Section
-                        if visibilitySettings.showLifestyle {
-                            VStack(alignment: .leading, spacing: 16) {
-                                Text("Lifestyle")
-                                    .font(.title2)
-                                    .fontWeight(.semibold)
-                                
-                                // Intake Tracking with simplified ratings
-                                VStack(spacing: 12) {
-                                    SimpleRatingRow(
-                                        title: "Caffeine",
-                                        value: $caffeineIntake,
-                                        color: .brown
-                                    )
-                                    
-                                    SimpleRatingRow(
-                                        title: "Alcohol",
-                                        value: $alcoholIntake,
-                                        color: .purple
-                                    )
-                                    
-                                    SimpleRatingRow(
-                                        title: "Water",
-                                        value: $waterIntake,
-                                        color: .blue
-                                    )
-                                    
-                                    SimpleRatingRow(
-                                        title: "Exercise",
-                                        value: $exerciseLevel,
-                                        color: .green
-                                    )
-                                }
-                                
-                                // Energy Level
-                                EnhancedRatingSlider(
-                                    title: "Energy Level",
-                                    value: $energyLevel,
-                                    color: .yellow
-                                )
-                                
-                                // Stress Level
-                                EnhancedRatingSlider(
-                                    title: "Stress Level",
-                                    value: $stressLevel,
-                                    color: .orange
-                                )
-                                
-                                // Medications
-                                VStack(alignment: .leading, spacing: 8) {
-                                    Text("Medications Taken")
-                                        .font(.body)
-                                        .fontWeight(.medium)
-                                    
-                                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
-                                        ForEach(commonMedications, id: \.self) { medication in
-                                            ToggleButton(
-                                                text: medication,
-                                                isSelected: selectedMedications.contains(medication),
-                                                color: .blue
-                                            ) {
-                                                if selectedMedications.contains(medication) {
-                                                    selectedMedications.remove(medication)
-                                                } else {
-                                                    selectedMedications.insert(medication)
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                                
-                                // Dietary Triggers
-                                VStack(alignment: .leading, spacing: 8) {
-                                    Text("Dietary Triggers")
-                                        .font(.body)
-                                        .fontWeight(.medium)
-                                    
-                                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
-                                        ForEach(dietaryTriggers, id: \.self) { trigger in
-                                            ToggleButton(
-                                                text: trigger,
-                                                isSelected: selectedDietaryTriggers.contains(trigger),
-                                                color: .red
-                                            ) {
-                                                if selectedDietaryTriggers.contains(trigger) {
-                                                    selectedDietaryTriggers.remove(trigger)
-                                                } else {
-                                                    selectedDietaryTriggers.insert(trigger)
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                            .padding()
-                            .background(Color(.systemGray6))
-                            .cornerRadius(12)
-                        }
-                        
-                        // Custom Tags Section
-                        VStack(alignment: .leading, spacing: 12) {
-                            Text("Additional Tags")
-                                .font(.title2)
-                                .fontWeight(.semibold)
-                            
-                            // Existing tags with delete option
-                            if !allTags.isEmpty {
-                                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
-                                    ForEach(allTags, id: \.self) { tag in
-                                        HStack(spacing: 4) {
-                                            ToggleButton(
-                                                text: tag,
-                                                isSelected: selectedTags.contains(tag),
-                                                color: .purple
-                                            ) {
-                                                if selectedTags.contains(tag) {
-                                                    selectedTags.remove(tag)
-                                                } else {
-                                                    selectedTags.insert(tag)
-                                                }
-                                            }
-                                            
-                                            Button(action: {
-                                                tagToDelete = tag
-                                                showingTagDeleteAlert = true
-                                            }) {
-                                                Image(systemName: "xmark.circle.fill")
-                                                    .foregroundColor(.red)
-                                                    .font(.caption)
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                            
-                            // Add new tag
-                            HStack {
-                                TextField("Add new tag...", text: $newTagText)
-                                    .textFieldStyle(RoundedBorderTextFieldStyle())
-                                
-                                Button("Add") {
-                                    addNewTag()
-                                }
-                                .disabled(newTagText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                            }
-                        }
-                        .padding()
-                        .background(Color(.systemGray6))
-                        .cornerRadius(12)
-                        
-                        // Notes Section
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Notes")
-                                .font(.headline)
-                            
-                            TextEditor(text: $notes)
-                                .frame(minHeight: 80)
-                                .padding(8)
-                                .background(Color(.systemGray5))
-                                .cornerRadius(8)
-                        }
-                        .padding()
-                        .background(Color(.systemGray6))
-                        .cornerRadius(12)
-                        
-                        // Save Button
-                        Button(action: saveDailyEntry) {
-                            Text("Save Entry")
-                                .font(.headline)
-                                .foregroundColor(.white)
-                                .frame(maxWidth: .infinity)
-                                .padding()
-                                .background(Color.blue)
-                                .cornerRadius(12)
-                        }
-                        .padding(.horizontal)
+                        // Clean save button
+                        saveButton
                     }
                 }
-                .padding()
+                .padding(DesignSystem.Spacing.large)
             }
-            .navigationTitle("Daily Entry")
-            .navigationBarItems(
-                trailing: Button("Edit") {
-                    showingEditModal = true
-                }
-            )
-            .onAppear {
-                loadSymptoms()
+        }
+        .navigationBarHidden(true)
+        .onAppear {
+            print("DEBUG: Minimal DailyTrackingView appeared")
+            loadSymptoms()
+            loadExistingEntry()
+            loadAllTags()
+        }
+        .sheet(isPresented: $showingDatePicker) {
+            MinimalDatePicker(selectedDate: $selectedDate) {
                 loadExistingEntry()
-                loadAllTags()
             }
-            .sheet(isPresented: $showingDatePicker) {
-                DatePickerModal(selectedDate: $selectedDate) {
-                    loadExistingEntry()
-                }
+        }
+        .sheet(isPresented: $showingEditModal) {
+            MinimalEditModal(
+                context: viewContext,
+                onSymptomsChanged: loadSymptoms
+            )
+        }
+        .alert("Entry Saved", isPresented: $showingSaveConfirmation) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text("Your daily entry has been saved")
+        }
+        .alert("Delete Tag", isPresented: $showingTagDeleteAlert) {
+            Button("Delete", role: .destructive) {
+                deleteTag(tagToDelete)
             }
-            .sheet(isPresented: $showingEditModal) {
-                EnhancedEditVisibilityModal(
-                    settings: $visibilitySettings,
-                    context: viewContext,
-                    onSymptomsChanged: {
-                        // Reload symptoms when visibility changes
-                        loadSymptoms()
+            Button("Cancel", role: .cancel) { }
+        } message: {
+            Text("Remove '\(tagToDelete)' from your tags?")
+        }
+    }
+    
+    // MARK: - Header Section
+    
+    private var headerSection: some View {
+        MinimalCard {
+            VStack(spacing: DesignSystem.Spacing.medium) {
+                // Date and edit controls
+                HStack {
+                    VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
+                        Text("Daily Entry")
+                            .font(DesignSystem.Typography.largeTitle)
+                            .foregroundColor(DesignSystem.Colors.primaryText)
+                        
+                        Text(selectedDate, formatter: subtleDateFormatter)
+                            .font(DesignSystem.Typography.caption)
+                            .foregroundColor(DesignSystem.Colors.secondaryText)
                     }
-                )
-            }
-            .alert("Delete Tag", isPresented: $showingTagDeleteAlert) {
-                Button("Delete", role: .destructive) {
-                    deleteTag(tagToDelete)
+                    
+                    Spacer()
+                    
+                    HStack(spacing: DesignSystem.Spacing.small) {
+                        Button(action: { showingDatePicker = true }) {
+                            Image(systemName: "calendar")
+                                .font(.system(size: 16, weight: .light))
+                                .foregroundColor(DesignSystem.Colors.secondaryText)
+                                .frame(width: 36, height: 36)
+                                .background(
+                                    Circle()
+                                        .stroke(DesignSystem.Colors.tertiaryText, lineWidth: 0.5)
+                                )
+                        }
+                        
+                        Button(action: { showingEditModal = true }) {
+                            Image(systemName: "pencil")
+                                .font(.system(size: 16, weight: .light))
+                                .foregroundColor(DesignSystem.Colors.secondaryText)
+                                .frame(width: 36, height: 36)
+                                .background(
+                                    Circle()
+                                        .stroke(DesignSystem.Colors.tertiaryText, lineWidth: 0.5)
+                                )
+                        }
+                    }
                 }
-                Button("Cancel", role: .cancel) { }
-            } message: {
-                Text("Are you sure you want to delete the tag '\(tagToDelete)'?")
-            }
-            .alert("Entry Saved", isPresented: $showingSaveConfirmation) {
-                Button("OK", role: .cancel) { }
-            } message: {
-                Text("Your daily entry has been saved successfully.")
+                
+                // Quick status indicator
+                if hasAnyData {
+                    HStack {
+                        Circle()
+                            .fill(DesignSystem.Colors.mutedGreen)
+                            .frame(width: 6, height: 6)
+                        
+                        Text("Data recorded for this day")
+                            .font(DesignSystem.Typography.micro)
+                            .foregroundColor(DesignSystem.Colors.secondaryText)
+                        
+                        Spacer()
+                    }
+                }
             }
         }
     }
     
+    // MARK: - Symptoms Section
+    
+    private var symptomsSection: some View {
+        CollapsibleSection(
+            title: "Symptoms",
+            subtitle: trackingSubtitle(for: symptomRatings),
+            isExpanded: expandedSections.contains("symptoms"),
+            color: DesignSystem.Colors.primaryBlue
+        ) {
+            toggleSection("symptoms")
+        } content: {
+            VStack(spacing: DesignSystem.Spacing.large) {
+                ForEach(Array(groupedSymptoms.keys.sorted()), id: \.self) { category in
+                    MinimalSymptomCategory(
+                        category: category,
+                        symptoms: groupedSymptoms[category] ?? [],
+                        ratings: $symptomRatings
+                    )
+                }
+            }
+        }
+    }
+    
+    // MARK: - Sleep Section
+    
+    private var sleepSection: some View {
+        CollapsibleSection(
+            title: "Sleep",
+            subtitle: sleepSubtitle,
+            isExpanded: expandedSections.contains("sleep"),
+            color: DesignSystem.Colors.softIndigo
+        ) {
+            toggleSection("sleep")
+        } content: {
+            VStack(spacing: DesignSystem.Spacing.large) {
+                MinimalSlider(
+                    title: "Hours Slept",
+                    value: $hoursSlept,
+                    range: 0...12,
+                    step: 0.5,
+                    unit: "h",
+                    color: DesignSystem.Colors.softIndigo
+                )
+                
+                MinimalSlider(
+                    title: "Sleep Quality",
+                    value: $sleepQuality,
+                    range: 0...5,
+                    step: 1,
+                    unit: "/5",
+                    color: DesignSystem.Colors.softIndigo
+                )
+                
+                if !selectedDisturbances.isEmpty || expandedSections.contains("sleep") {
+                    VStack(alignment: .leading, spacing: DesignSystem.Spacing.medium) {
+                        Text("Sleep Disturbances")
+                            .font(DesignSystem.Typography.body)
+                            .foregroundColor(DesignSystem.Colors.primaryText)
+                        
+                        LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: DesignSystem.Spacing.small) {
+                            ForEach(sleepDisturbances, id: \.self) { disturbance in
+                                SimpleToggleChip(
+                                    text: disturbance,
+                                    isSelected: selectedDisturbances.contains(disturbance),
+                                    color: DesignSystem.Colors.softIndigo
+                                ) {
+                                    toggleDisturbance(disturbance)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    // MARK: - Lifestyle Section
+    
+    private var lifestyleSection: some View {
+        CollapsibleSection(
+            title: "Lifestyle",
+            subtitle: lifestyleSubtitle,
+            isExpanded: expandedSections.contains("lifestyle"),
+            color: DesignSystem.Colors.mutedGreen
+        ) {
+            toggleSection("lifestyle")
+        } content: {
+            VStack(spacing: DesignSystem.Spacing.large) {
+                // Simple intake tracking
+                VStack(spacing: DesignSystem.Spacing.medium) {
+                    MinimalIntakeRow(title: "Caffeine", value: $caffeineIntake, color: DesignSystem.Colors.mutedGreen)
+                    MinimalIntakeRow(title: "Alcohol", value: $alcoholIntake, color: DesignSystem.Colors.mutedGreen)
+                    MinimalIntakeRow(title: "Water", value: $waterIntake, color: DesignSystem.Colors.mutedGreen)
+                    MinimalIntakeRow(title: "Exercise", value: $exerciseLevel, color: DesignSystem.Colors.mutedGreen)
+                }
+                
+                MinimalSlider(
+                    title: "Energy Level",
+                    value: $energyLevel,
+                    range: 0...5,
+                    step: 1,
+                    unit: "/5",
+                    color: DesignSystem.Colors.mutedGreen
+                )
+                
+                MinimalSlider(
+                    title: "Stress Level",
+                    value: $stressLevel,
+                    range: 0...5,
+                    step: 1,
+                    unit: "/5",
+                    color: DesignSystem.Colors.mutedGreen
+                )
+                
+                // Only show medications/triggers if there are selections or section is expanded
+                if !selectedMedications.isEmpty || expandedSections.contains("lifestyle") {
+                    medicationsSection
+                }
+                
+                if !selectedDietaryTriggers.isEmpty || expandedSections.contains("lifestyle") {
+                    triggersSection
+                }
+            }
+        }
+    }
+    
+    private var medicationsSection: some View {
+        VStack(alignment: .leading, spacing: DesignSystem.Spacing.medium) {
+            Text("Medications")
+                .font(DesignSystem.Typography.body)
+                .foregroundColor(DesignSystem.Colors.primaryText)
+            
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: DesignSystem.Spacing.small) {
+                ForEach(commonMedications, id: \.self) { medication in
+                    SimpleToggleChip(
+                        text: medication,
+                        isSelected: selectedMedications.contains(medication),
+                        color: DesignSystem.Colors.mutedGreen
+                    ) {
+                        toggleMedication(medication)
+                    }
+                }
+            }
+        }
+    }
+    
+    private var triggersSection: some View {
+        VStack(alignment: .leading, spacing: DesignSystem.Spacing.medium) {
+            Text("Dietary Triggers")
+                .font(DesignSystem.Typography.body)
+                .foregroundColor(DesignSystem.Colors.primaryText)
+            
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: DesignSystem.Spacing.small) {
+                ForEach(dietaryTriggers, id: \.self) { trigger in
+                    SimpleToggleChip(
+                        text: trigger,
+                        isSelected: selectedDietaryTriggers.contains(trigger),
+                        color: DesignSystem.Colors.mutedGreen
+                    ) {
+                        toggleTrigger(trigger)
+                    }
+                }
+            }
+        }
+    }
+    
+    // MARK: - Tags and Notes Section
+    
+    private var tagsAndNotesSection: some View {
+        MinimalCard {
+            VStack(alignment: .leading, spacing: DesignSystem.Spacing.large) {
+                // Tags
+                if !allTags.isEmpty || !newTagText.isEmpty {
+                    VStack(alignment: .leading, spacing: DesignSystem.Spacing.medium) {
+                        Text("Tags")
+                            .font(DesignSystem.Typography.body)
+                            .foregroundColor(DesignSystem.Colors.primaryText)
+                        
+                        if !allTags.isEmpty {
+                            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: DesignSystem.Spacing.small) {
+                                ForEach(allTags, id: \.self) { tag in
+                                    TagChip(
+                                        text: tag,
+                                        isSelected: selectedTags.contains(tag),
+                                        onToggle: { toggleTag(tag) },
+                                        onDelete: { deleteTagAction(tag) }
+                                    )
+                                }
+                            }
+                        }
+                        
+                        // Add new tag
+                        HStack {
+                            TextField("Add tag...", text: $newTagText)
+                                .font(DesignSystem.Typography.body)
+                                .textFieldStyle(PlainTextFieldStyle())
+                                .padding(.horizontal, DesignSystem.Spacing.small)
+                                .padding(.vertical, DesignSystem.Spacing.xs)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .stroke(DesignSystem.Colors.tertiaryText, lineWidth: 0.5)
+                                )
+                            
+                            DelicateButton(title: "Add", action: addNewTag, style: .subtle)
+                                .disabled(newTagText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                        }
+                    }
+                }
+                
+                // Notes
+                VStack(alignment: .leading, spacing: DesignSystem.Spacing.medium) {
+                    Text("Notes")
+                        .font(DesignSystem.Typography.body)
+                        .foregroundColor(DesignSystem.Colors.primaryText)
+                    
+                    TextField("How are you feeling today?", text: $notes, axis: .vertical)
+                        .font(DesignSystem.Typography.body)
+                        .textFieldStyle(PlainTextFieldStyle())
+                        .lineLimit(3...6)
+                        .padding(DesignSystem.Spacing.small)
+                        .background(
+                            RoundedRectangle(cornerRadius: 8)
+                                .stroke(DesignSystem.Colors.tertiaryText, lineWidth: 0.5)
+                        )
+                }
+            }
+        }
+    }
+    
+    // MARK: - Save Button
+    
+    private var saveButton: some View {
+        DelicateButton(
+            title: hasAnyData ? "Update Entry" : "Save Entry",
+            action: saveDailyEntry,
+            style: .primary
+        )
+        .padding(.horizontal, DesignSystem.Spacing.large)
+    }
+    
+    // MARK: - Loading View
+    
+    private var loadingView: some View {
+        VStack(spacing: DesignSystem.Spacing.medium) {
+            ProgressView()
+                .tint(DesignSystem.Colors.primaryBlue)
+            
+            Text("Loading...")
+                .font(DesignSystem.Typography.caption)
+                .foregroundColor(DesignSystem.Colors.secondaryText)
+        }
+        .padding(DesignSystem.Spacing.xxl)
+    }
+    
+    // MARK: - Helper Views and Computed Properties
+    
+    private var hasAnyData: Bool {
+        !symptomRatings.values.allSatisfy { $0 == 0 } ||
+        hoursSlept != 8.0 ||
+        sleepQuality != 0 ||
+        !selectedDisturbances.isEmpty ||
+        energyLevel != 0 ||
+        stressLevel != 0 ||
+        !selectedMedications.isEmpty ||
+        !selectedDietaryTriggers.isEmpty ||
+        !notes.isEmpty ||
+        !selectedTags.isEmpty
+    }
+    
+    private var sleepSubtitle: String {
+        if hoursSlept != 8.0 || sleepQuality != 0 || !selectedDisturbances.isEmpty {
+            return "\(String(format: "%.1f", hoursSlept))h sleep, quality \(Int(sleepQuality))/5"
+        }
+        return "Not tracked"
+    }
+    
+    private var lifestyleSubtitle: String {
+        let trackedItems = [caffeineIntake, alcoholIntake, waterIntake, exerciseLevel].filter { $0 != "N/A" }
+        if !trackedItems.isEmpty || energyLevel != 0 || stressLevel != 0 {
+            return "\(trackedItems.count) items tracked"
+        }
+        return "Not tracked"
+    }
+    
+    private func trackingSubtitle(for ratings: [String: Double]) -> String {
+        let trackedSymptoms = ratings.values.filter { $0 > 0 }.count
+        return trackedSymptoms > 0 ? "\(trackedSymptoms) symptoms tracked" : "No symptoms"
+    }
+    
+    private var subtleDateFormatter: DateFormatter {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "EEEE, MMMM d"
+        return formatter
+    }
+    
+    // MARK: - Actions
+    
+    private func toggleSection(_ section: String) {
+        print("DEBUG: Toggling section: \(section)")
+        withAnimation(.easeInOut(duration: 0.3)) {
+            if expandedSections.contains(section) {
+                expandedSections.remove(section)
+            } else {
+                expandedSections.insert(section)
+            }
+        }
+    }
+    
+    private func toggleDisturbance(_ disturbance: String) {
+        if selectedDisturbances.contains(disturbance) {
+            selectedDisturbances.remove(disturbance)
+        } else {
+            selectedDisturbances.insert(disturbance)
+        }
+    }
+    
+    private func toggleMedication(_ medication: String) {
+        if selectedMedications.contains(medication) {
+            selectedMedications.remove(medication)
+        } else {
+            selectedMedications.insert(medication)
+        }
+    }
+    
+    private func toggleTrigger(_ trigger: String) {
+        if selectedDietaryTriggers.contains(trigger) {
+            selectedDietaryTriggers.remove(trigger)
+        } else {
+            selectedDietaryTriggers.insert(trigger)
+        }
+    }
+    
+    private func toggleTag(_ tag: String) {
+        if selectedTags.contains(tag) {
+            selectedTags.remove(tag)
+        } else {
+            selectedTags.insert(tag)
+        }
+    }
+    
+    private func deleteTagAction(_ tag: String) {
+        tagToDelete = tag
+        showingTagDeleteAlert = true
+    }
+    
+    private func addNewTag() {
+        let trimmedTag = newTagText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedTag.isEmpty && !allTags.contains(trimmedTag) else { return }
+        
+        allTags.append(trimmedTag)
+        selectedTags.insert(trimmedTag)
+        UserDefaults.standard.set(allTags, forKey: "CustomTags")
+        newTagText = ""
+        print("DEBUG: Added new tag: \(trimmedTag)")
+    }
+    
+    private func deleteTag(_ tag: String) {
+        allTags.removeAll { $0 == tag }
+        selectedTags.remove(tag)
+        UserDefaults.standard.set(allTags, forKey: "CustomTags")
+        print("DEBUG: Deleted tag: \(tag)")
+    }
+    
+    // MARK: - Data Loading and Saving (keeping your existing logic)
+    
     private func loadSymptoms() {
-        print("DEBUG: Loading symptoms in DailyTrackingView")
+        print("DEBUG: Loading symptoms in minimal DailyTrackingView")
         isLoading = true
         
         groupedSymptoms = SymptomDataManager.shared.fetchSymptomsByCategory(context: viewContext)
         symptoms = SymptomDataManager.shared.fetchActiveSymptoms(context: viewContext)
         
-        // Initialize ratings dictionary with 0 (N/A) for all symptoms
         for symptom in symptoms {
             if symptomRatings[symptom.name] == nil {
                 symptomRatings[symptom.name] = 0
@@ -409,8 +559,6 @@ struct DailyTrackingView: View {
     
     private func loadExistingEntry() {
         print("DEBUG: Loading existing entry for \(selectedDate)")
-        
-        // Load daily entry, sleep entry, and lifestyle entry for the selected date
         loadExistingDailyEntry()
         loadExistingSleepEntry()
         loadExistingLifestyleEntry()
@@ -428,12 +576,10 @@ struct DailyTrackingView: View {
             let entries = try viewContext.fetch(request)
             
             if let entry = entries.first {
-                // Reset all ratings to 0 first
                 for symptom in symptoms {
                     symptomRatings[symptom.name] = 0
                 }
                 
-                // Load existing ratings
                 if let ratings = entry.symptomRatings as? Set<SymptomRating> {
                     for rating in ratings {
                         symptomRatings[rating.symptomName] = Double(rating.rating)
@@ -442,22 +588,18 @@ struct DailyTrackingView: View {
                 
                 notes = entry.notes ?? ""
                 
-                // Parse tags from notes
                 if let entryNotes = entry.notes {
                     if entryNotes.contains("Tags: ") {
                         let components = entryNotes.components(separatedBy: "Tags: ")
                         if components.count > 1 {
                             let tagsString = components[1].components(separatedBy: "\n").first ?? ""
                             selectedTags = Set(tagsString.components(separatedBy: ", ").filter { !$0.isEmpty })
-                            
-                            // Remove tags from notes display
                             notes = entryNotes.replacingOccurrences(of: "\nTags: \(tagsString)", with: "")
                                 .replacingOccurrences(of: "Tags: \(tagsString)", with: "")
                         }
                     }
                 }
             } else {
-                // Reset to defaults
                 for symptom in symptoms {
                     symptomRatings[symptom.name] = 0
                 }
@@ -506,7 +648,6 @@ struct DailyTrackingView: View {
             let entries = try viewContext.fetch(request)
             
             if let entry = entries.first {
-                // Parse intake levels from notes
                 if let entryNotes = entry.notes {
                     caffeineIntake = entryNotes.contains("Caffeine: Low") ? "Low" :
                                      entryNotes.contains("Caffeine: Medium") ? "Medium" :
@@ -524,10 +665,7 @@ struct DailyTrackingView: View {
                                     entryNotes.contains("Exercise: Medium") ? "Medium" :
                                     entryNotes.contains("Exercise: High") ? "High" : "N/A"
                 } else {
-                    caffeineIntake = "N/A"
-                    alcoholIntake = "N/A"
-                    waterIntake = "N/A"
-                    exerciseLevel = "N/A"
+                    resetLifestyleToDefaults()
                 }
                 
                 energyLevel = Double(entry.energyLevel)
@@ -555,41 +693,13 @@ struct DailyTrackingView: View {
     }
     
     private func loadAllTags() {
-        // For now, we'll store tags in UserDefaults
-        // In a full implementation, you might want to create a Tags entity
         if let tags = UserDefaults.standard.array(forKey: "CustomTags") as? [String] {
             allTags = tags
         }
     }
     
-    private func addNewTag() {
-        let trimmedTag = newTagText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmedTag.isEmpty && !allTags.contains(trimmedTag) else { return }
-        
-        allTags.append(trimmedTag)
-        selectedTags.insert(trimmedTag)
-        
-        // Save to UserDefaults
-        UserDefaults.standard.set(allTags, forKey: "CustomTags")
-        
-        newTagText = ""
-        print("DEBUG: Added new tag: \(trimmedTag)")
-    }
-    
-    private func deleteTag(_ tag: String) {
-        allTags.removeAll { $0 == tag }
-        selectedTags.remove(tag)
-        
-        // Save to UserDefaults
-        UserDefaults.standard.set(allTags, forKey: "CustomTags")
-        
-        print("DEBUG: Deleted tag: \(tag)")
-    }
-    
-    // Add these functions to your DailyTrackingView class (replace the existing saveDailyEntry function)
-
     private func saveDailyEntry() {
-        print("DEBUG: Saving comprehensive daily entry")
+        print("DEBUG: Saving minimal daily entry")
         
         // Save daily entry with symptoms
         let ratingsToSave = symptomRatings.compactMapValues { rating in
@@ -609,42 +719,10 @@ struct DailyTrackingView: View {
             context: viewContext
         )
         
-        // Save sleep entry
         saveSleepEntry()
-        
-        // Save lifestyle entry
         saveLifestyleEntry()
-        
-        // Reset the form after successful save
-        resetFormToDefaults()
-        
         showingSaveConfirmation = true
-    }
-
-    private func resetFormToDefaults() {
-        print("DEBUG: Resetting daily entry form to defaults")
-        
-        // Reset all symptom ratings to 0
-        for symptom in symptoms {
-            symptomRatings[symptom.name] = 0
-        }
-        
-        // Reset notes
-        notes = ""
-        
-        // Reset tags
-        selectedTags.removeAll()
-        newTagText = ""
-        
-        // Reset sleep data
-        hoursSlept = 8.0
-        sleepQuality = 0
-        selectedDisturbances.removeAll()
-        
-        // Reset lifestyle data
-        resetLifestyleToDefaults()
-        
-        print("DEBUG: Form reset completed")
+        print("DEBUG: Minimal daily entry saved successfully")
     }
     
     private func saveSleepEntry() {
@@ -723,7 +801,7 @@ struct DailyTrackingView: View {
         }
     }
     
-    // MARK: - Helper Functions
+    // MARK: - Helper Functions (keeping your existing encoding/decoding logic)
     
     private func intakeToNumber(_ intake: String) -> Int {
         switch intake {
@@ -800,399 +878,6 @@ struct DailyTrackingView: View {
             return Set(array)
         } catch {
             return nil
-        }
-    }
-    
-    private var compactDateFormatter: DateFormatter {
-        let formatter = DateFormatter()
-        formatter.dateStyle = .medium
-        return formatter
-    }
-}
-
-// MARK: - Supporting Views
-
-struct VisibilitySettings {
-    var showSymptoms = true
-    var showSleep = true
-    var showLifestyle = true
-}
-
-struct DatePickerModal: View {
-    @Binding var selectedDate: Date
-    let onDateChange: () -> Void
-    @Environment(\.presentationMode) var presentationMode
-    
-    var body: some View {
-        NavigationView {
-            VStack {
-                DatePicker("Select Date", selection: $selectedDate, displayedComponents: .date)
-                    .datePickerStyle(GraphicalDatePickerStyle())
-                    .padding()
-                
-                Spacer()
-            }
-            .navigationTitle("Select Date")
-            .navigationBarItems(
-                leading: Button("Cancel") {
-                    presentationMode.wrappedValue.dismiss()
-                },
-                trailing: Button("Done") {
-                    onDateChange()
-                    presentationMode.wrappedValue.dismiss()
-                }
-            )
-        }
-    }
-}
-
-struct EnhancedRatingSlider: View {
-    let title: String
-    @Binding var value: Double
-    let color: Color
-    
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Text(title)
-                    .font(.body)
-                    .fontWeight(.medium)
-                
-                Spacer()
-                
-                Text(value == 0 ? "N/A" : String(format: "%.0f", value))
-                    .font(.headline)
-                    .foregroundColor(value == 0 ? .secondary : color)
-            }
-            
-            Slider(
-                value: $value,
-                in: 0...5,
-                step: 1
-            ) {
-                Text(title)
-            } minimumValueLabel: {
-                Text("N/A")
-                    .font(.caption)
-            } maximumValueLabel: {
-                Text("5")
-                    .font(.caption)
-            }
-            .accentColor(color)
-        }
-    }
-}
-
-struct ToggleButton: View {
-    let text: String
-    let isSelected: Bool
-    let color: Color
-    let action: () -> Void
-    
-    var body: some View {
-        Button(action: action) {
-            Text(text)
-                .font(.caption)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
-                .background(isSelected ? color : Color(.systemGray5))
-                .foregroundColor(isSelected ? .white : .primary)
-                .cornerRadius(12)
-                .multilineTextAlignment(.center)
-        }
-    }
-}
-
-struct SymptomCategorySection: View {
-    let category: String
-    let symptoms: [PredefinedSymptom]
-    @Binding var ratings: [String: Double]
-    
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text(category)
-                .font(.headline)
-                .foregroundColor(.primary)
-            
-            ForEach(symptoms.filter { $0.isActive }, id: \.name) { symptom in
-                EnhancedSymptomRatingRow(
-                    symptomName: symptom.name,
-                    rating: Binding(
-                        get: { ratings[symptom.name] ?? 0 },
-                        set: { ratings[symptom.name] = $0 }
-                    )
-                )
-            }
-        }
-        .padding()
-        .background(Color(.systemBackground))
-        .cornerRadius(8)
-    }
-}
-
-struct EnhancedSymptomRatingRow: View {
-    let symptomName: String
-    @Binding var rating: Double
-    
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Text(symptomName)
-                    .font(.body)
-                    .foregroundColor(.primary)
-                
-                Spacer()
-                
-                Text(rating == 0 ? "N/A" : String(format: "%.0f", rating))
-                    .font(.headline)
-                    .foregroundColor(rating == 0 ? .secondary : .blue)
-                    .frame(minWidth: 40)
-            }
-            
-            Slider(
-                value: $rating,
-                in: 0...5,
-                step: 1
-            ) {
-                Text(symptomName)
-            } minimumValueLabel: {
-                Text("N/A")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            } maximumValueLabel: {
-                Text("5")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-            .accentColor(.blue)
-        }
-        .padding(.vertical, 4)
-    }
-}
-
-struct SimpleRatingRow: View {
-    let title: String
-    @Binding var value: String
-    let color: Color
-    
-    private let options = ["N/A", "Low", "Medium", "High"]
-    
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Text(title)
-                    .font(.body)
-                    .fontWeight(.medium)
-                
-                Spacer()
-                
-                Text(value)
-                    .font(.headline)
-                    .foregroundColor(value == "N/A" ? .secondary : color)
-            }
-            
-            Picker(title, selection: $value) {
-                ForEach(options, id: \.self) { option in
-                    Text(option).tag(option)
-                }
-            }
-            .pickerStyle(SegmentedPickerStyle())
-        }
-    }
-}
-
-struct EnhancedEditVisibilityModal: View {
-    @Binding var settings: VisibilitySettings
-    let context: NSManagedObjectContext
-    let onSymptomsChanged: () -> Void
-    @Environment(\.presentationMode) var presentationMode
-    
-    @State private var symptoms: [PredefinedSymptom] = []
-    @State private var newSymptomName = ""
-    @State private var newSymptomCategory = "Custom"
-    @State private var showingAddSymptom = false
-    
-    private let categories = ["Migraine", "Post-Concussion", "Physical", "Emotional", "Custom"]
-    
-    var body: some View {
-        NavigationView {
-            Form {
-                Section(header: Text("Main Sections")) {
-                    Toggle("Symptoms", isOn: $settings.showSymptoms)
-                    Toggle("Sleep", isOn: $settings.showSleep)
-                    Toggle("Lifestyle", isOn: $settings.showLifestyle)
-                }
-                
-                if settings.showSymptoms {
-                    Section(header: HStack {
-                        Text("Individual Symptoms")
-                        Spacer()
-                        Button("Add New") {
-                            showingAddSymptom = true
-                        }
-                        .font(.caption)
-                    }) {
-                        ForEach(symptoms, id: \.name) { symptom in
-                            HStack {
-                                VStack(alignment: .leading) {
-                                    Text(symptom.name)
-                                        .font(.body)
-                                    Text(symptom.category)
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
-                                }
-                                
-                                Spacer()
-                                
-                                Toggle("", isOn: Binding(
-                                    get: { symptom.isActive },
-                                    set: { newValue in
-                                        symptom.isActive = newValue
-                                        saveContext()
-                                        onSymptomsChanged() // Notify parent to reload
-                                    }
-                                ))
-                                
-                                Button(action: {
-                                    deleteSymptom(symptom)
-                                }) {
-                                    Image(systemName: "trash")
-                                        .foregroundColor(.red)
-                                        .font(.caption)
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            .navigationTitle("Customize Tracking")
-            .navigationBarItems(
-                leading: Button("Cancel") {
-                    presentationMode.wrappedValue.dismiss()
-                },
-                trailing: Button("Done") {
-                    presentationMode.wrappedValue.dismiss()
-                }
-            )
-            .onAppear {
-                loadSymptoms()
-            }
-            .sheet(isPresented: $showingAddSymptom) {
-                AddSymptomModal(
-                    context: context,
-                    onSymptomAdded: {
-                        loadSymptoms()
-                        onSymptomsChanged() // Notify parent when new symptom is added
-                    }
-                )
-            }
-        }
-    }
-    
-    private func loadSymptoms() {
-        // Load all symptoms (both active and inactive) for editing
-        let request: NSFetchRequest<PredefinedSymptom> = PredefinedSymptom.fetchRequest()
-        request.sortDescriptors = [
-            NSSortDescriptor(keyPath: \PredefinedSymptom.category, ascending: true),
-            NSSortDescriptor(keyPath: \PredefinedSymptom.name, ascending: true)
-        ]
-        
-        do {
-            symptoms = try context.fetch(request)
-            print("DEBUG: Loaded \(symptoms.count) symptoms for editing")
-        } catch {
-            print("DEBUG ERROR: Failed to load symptoms for editing: \(error)")
-        }
-    }
-    
-    private func saveContext() {
-        do {
-            try context.save()
-            print("DEBUG: Saved symptom visibility changes")
-        } catch {
-            print("DEBUG ERROR: Failed to save symptom changes: \(error)")
-        }
-    }
-    
-    private func deleteSymptom(_ symptom: PredefinedSymptom) {
-        context.delete(symptom)
-        
-        do {
-            try context.save()
-            print("DEBUG: Deleted symptom: \(symptom.name)")
-            loadSymptoms() // Reload the list
-            onSymptomsChanged() // Notify parent
-        } catch {
-            print("DEBUG ERROR: Failed to delete symptom: \(error)")
-        }
-    }
-}
-
-struct AddSymptomModal: View {
-    let context: NSManagedObjectContext
-    let onSymptomAdded: () -> Void
-    
-    @Environment(\.presentationMode) var presentationMode
-    @State private var symptomName = ""
-    @State private var selectedCategory = "Custom"
-    
-    private let categories = ["Migraine", "Post-Concussion", "Physical", "Emotional", "Custom"]
-    
-    var body: some View {
-        NavigationView {
-            Form {
-                Section(header: Text("New Symptom")) {
-                    TextField("Symptom Name", text: $symptomName)
-                    
-                    Picker("Category", selection: $selectedCategory) {
-                        ForEach(categories, id: \.self) { category in
-                            Text(category).tag(category)
-                        }
-                    }
-                }
-            }
-            .navigationTitle("Add Symptom")
-            .navigationBarItems(
-                leading: Button("Cancel") {
-                    presentationMode.wrappedValue.dismiss()
-                },
-                trailing: Button("Add") {
-                    addSymptom()
-                }
-                .disabled(symptomName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-            )
-        }
-    }
-    
-    private func addSymptom() {
-        let trimmedName = symptomName.trimmingCharacters(in: .whitespacesAndNewlines)
-        
-        // Check if symptom already exists
-        let request: NSFetchRequest<PredefinedSymptom> = PredefinedSymptom.fetchRequest()
-        request.predicate = NSPredicate(format: "name == %@", trimmedName)
-        
-        do {
-            let existingSymptoms = try context.fetch(request)
-            if !existingSymptoms.isEmpty {
-                print("DEBUG: Symptom '\(trimmedName)' already exists")
-                return
-            }
-            
-            // Create new symptom
-            let newSymptom = PredefinedSymptom(context: context)
-            newSymptom.name = trimmedName
-            newSymptom.category = selectedCategory
-            newSymptom.isActive = true
-            newSymptom.createdAt = Date()
-            
-            try context.save()
-            print("DEBUG: Added new symptom: \(trimmedName) in category: \(selectedCategory)")
-            
-            onSymptomAdded()
-            presentationMode.wrappedValue.dismiss()
-            
-        } catch {
-            print("DEBUG ERROR: Failed to add symptom: \(error)")
         }
     }
 }

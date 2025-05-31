@@ -5,6 +5,29 @@ struct ContentView: View {
     @Environment(\.managedObjectContext) private var viewContext
     @State private var selectedTab = 0
     
+    init() {
+        // Apply minimal UI style to tab bar
+        let appearance = UITabBarAppearance()
+        appearance.configureWithOpaqueBackground()
+        appearance.backgroundColor = UIColor(DesignSystem.Colors.cardBackground)
+        appearance.shadowColor = UIColor(DesignSystem.Shadows.subtle)
+        
+        appearance.stackedLayoutAppearance.selected.iconColor = UIColor(DesignSystem.Colors.primaryBlue)
+        appearance.stackedLayoutAppearance.selected.titleTextAttributes = [
+            .foregroundColor: UIColor(DesignSystem.Colors.primaryBlue),
+            .font: UIFont.systemFont(ofSize: 11, weight: .medium)
+        ]
+        
+        appearance.stackedLayoutAppearance.normal.iconColor = UIColor(DesignSystem.Colors.tertiaryText)
+        appearance.stackedLayoutAppearance.normal.titleTextAttributes = [
+            .foregroundColor: UIColor(DesignSystem.Colors.tertiaryText),
+            .font: UIFont.systemFont(ofSize: 11, weight: .regular)
+        ]
+        
+        UITabBar.appearance().standardAppearance = appearance
+        UITabBar.appearance().scrollEdgeAppearance = appearance
+    }
+    
     var body: some View {
         TabView(selection: $selectedTab) {
             DailyTrackingView()
@@ -35,6 +58,7 @@ struct ContentView: View {
                 }
                 .tag(3)
         }
+        .accentColor(DesignSystem.Colors.primaryBlue)
         .onAppear {
             // Debug: Check if symptoms are populated
             checkAndPopulateSymptoms()
