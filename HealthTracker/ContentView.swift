@@ -75,6 +75,14 @@ struct ContentView: View {
                 SymptomDataManager.shared.populatePredefinedSymptoms(context: viewContext)
             } else {
                 print("DEBUG: Found \(count) predefined symptoms")
+                
+                // Check if we need to update symptom names (run once)
+                let hasUpdated = UserDefaults.standard.bool(forKey: "SymptomsUpdatedToNewNames")
+                if !hasUpdated {
+                    print("DEBUG: Updating existing symptoms to new names...")
+                    SymptomDataManager.shared.updateExistingSymptoms(context: viewContext)
+                    UserDefaults.standard.set(true, forKey: "SymptomsUpdatedToNewNames")
+                }
             }
         } catch {
             print("DEBUG ERROR: Failed to check symptoms: \(error)")

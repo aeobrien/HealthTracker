@@ -165,6 +165,69 @@ struct MinimalSlider: View {
     }
 }
 
+struct SymptomRatingButtons: View {
+    let title: String
+    @Binding var value: Double
+    let color: Color
+    let customLabels: [String]?
+    
+    private var labels: [String] {
+        if let customLabels = customLabels {
+            return customLabels
+        } else {
+            return ["Not tracked", "1", "2", "3", "4", "5"]
+        }
+    }
+    
+    private var values: [Double] {
+        return [0, 1, 2, 3, 4, 5]
+    }
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: DesignSystem.Spacing.medium) {
+            HStack {
+                Text(title)
+                    .font(DesignSystem.Typography.body)
+                    .foregroundColor(DesignSystem.Colors.primaryText)
+                
+                Spacer()
+                
+                if value == 0 {
+                    Text("Not tracked")
+                        .font(DesignSystem.Typography.caption)
+                        .foregroundColor(DesignSystem.Colors.tertiaryText)
+                } else {
+                    Text(customLabels != nil ? labels[Int(value)] : "\(Int(value))/5")
+                        .font(DesignSystem.Typography.caption)
+                        .fontWeight(.medium)
+                        .foregroundColor(color)
+                }
+            }
+            
+            HStack(spacing: DesignSystem.Spacing.xs) {
+                ForEach(Array(zip(values, labels)), id: \.0) { (buttonValue, label) in
+                    Button(action: { value = buttonValue }) {
+                        Text(label)
+                            .font(DesignSystem.Typography.micro)
+                            .foregroundColor(value == buttonValue ? color : DesignSystem.Colors.tertiaryText)
+                            .padding(.horizontal, DesignSystem.Spacing.xs)
+                            .padding(.vertical, DesignSystem.Spacing.xs)
+                            .frame(minWidth: 32, minHeight: 28)
+                            .background(
+                                RoundedRectangle(cornerRadius: 6)
+                                    .fill(value == buttonValue ? color.opacity(0.1) : Color.clear)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 6)
+                                            .stroke(value == buttonValue ? color.opacity(0.4) : DesignSystem.Colors.tertiaryText, lineWidth: 0.5)
+                                    )
+                            )
+                    }
+                }
+            }
+        }
+    }
+}
+
 struct SimpleToggleChip: View {
     let text: String
     let isSelected: Bool
@@ -250,6 +313,13 @@ struct MinimalSymptomCategory: View {
     let symptoms: [PredefinedSymptom]
     @Binding var ratings: [String: Double]
     
+    private func customLabelsForSymptom(_ symptomName: String) -> [String]? {
+        if symptomName == "Appetite (compared to usual)" {
+            return ["Not tracked", "Much less", "Less", "Same", "More", "Much more"]
+        }
+        return nil
+    }
+    
     var body: some View {
         VStack(alignment: .leading, spacing: DesignSystem.Spacing.medium) {
             Text(category)
@@ -260,16 +330,14 @@ struct MinimalSymptomCategory: View {
             
             VStack(spacing: DesignSystem.Spacing.medium) {
                 ForEach(symptoms.filter { $0.isActive }, id: \.name) { symptom in
-                    MinimalSlider(
+                    SymptomRatingButtons(
                         title: symptom.name,
                         value: Binding(
                             get: { ratings[symptom.name] ?? 0 },
                             set: { ratings[symptom.name] = $0 }
                         ),
-                        range: 0...5,
-                        step: 1,
-                        unit: "/5",
-                        color: DesignSystem.Colors.primaryBlue
+                        color: DesignSystem.Colors.primaryBlue,
+                        customLabels: customLabelsForSymptom(symptom.name)
                     )
                 }
             }

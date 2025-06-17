@@ -157,20 +157,19 @@ struct DailyTrackingView: View {
                     }
                 }
                 
-                // Quick status indicator
-                if hasAnyData {
-                    HStack {
-                        Circle()
-                            .fill(DesignSystem.Colors.mutedGreen)
-                            .frame(width: 6, height: 6)
-                        
-                        Text("Data recorded for this day")
-                            .font(DesignSystem.Typography.micro)
-                            .foregroundColor(DesignSystem.Colors.secondaryText)
-                        
-                        Spacer()
-                    }
+                // Quick status indicator - always reserve space to prevent layout shifts
+                HStack {
+                    Circle()
+                        .fill(hasAnyData ? DesignSystem.Colors.mutedGreen : Color.clear)
+                        .frame(width: 6, height: 6)
+                    
+                    Text(hasAnyData ? "Data recorded for this day" : "")
+                        .font(DesignSystem.Typography.micro)
+                        .foregroundColor(DesignSystem.Colors.secondaryText)
+                    
+                    Spacer()
                 }
+                .frame(minHeight: 16) // Reserve consistent height
             }
         }
     }

@@ -25,11 +25,10 @@ class SymptomDataManager {
         ("Dizziness", "Post-Concussion"),
         ("Balance Problems", "Post-Concussion"),
         ("Fatigue", "Post-Concussion"),
-        ("Sleep Disturbances", "Post-Concussion"),
         ("Irritability", "Post-Concussion"),
         ("Anxiety", "Post-Concussion"),
         ("Depression", "Post-Concussion"),
-        ("Personality Changes", "Post-Concussion"),
+        ("Feeling Unlike Yourself", "Post-Concussion"),
         ("Brain Fog", "Post-Concussion"),
         
         // Shared/Common symptoms
@@ -38,10 +37,10 @@ class SymptomDataManager {
         ("Eye Strain", "Physical"),
         ("Blurred Vision", "Physical"),
         ("Ringing in Ears", "Physical"),
-        ("Mood Changes", "Emotional"),
+        ("Emotional Instability", "Emotional"),
         ("Stress", "Emotional"),
         ("Restlessness", "Emotional"),
-        ("Appetite Changes", "Physical"),
+        ("Appetite (compared to usual)", "Physical"),
         ("Digestive Issues", "Physical")
     ]
     
@@ -63,6 +62,40 @@ class SymptomDataManager {
             print("DEBUG: Successfully saved \(migrainePCSSymptoms.count) predefined symptoms")
         } catch {
             print("DEBUG ERROR: Failed to save predefined symptoms: \(error)")
+        }
+    }
+    
+    func updateExistingSymptoms(context: NSManagedObjectContext) {
+        print("DEBUG: Updating existing symptom names")
+        
+        let symptomUpdates: [(oldName: String, newName: String)] = [
+            ("Mood Changes", "Emotional Instability"),
+            ("Personality Changes", "Feeling Unlike Yourself"),
+            ("Appetite Changes", "Appetite (compared to usual)")
+        ]
+        
+        let request: NSFetchRequest<PredefinedSymptom> = PredefinedSymptom.fetchRequest()
+        
+        do {
+            let allSymptoms = try context.fetch(request)
+            
+            for update in symptomUpdates {
+                if let symptomToUpdate = allSymptoms.first(where: { $0.name == update.oldName }) {
+                    print("DEBUG: Updating '\(update.oldName)' to '\(update.newName)'")
+                    symptomToUpdate.name = update.newName
+                }
+            }
+            
+            // Remove Sleep Disturbances if it exists
+            if let sleepDisturbances = allSymptoms.first(where: { $0.name == "Sleep Disturbances" }) {
+                print("DEBUG: Removing 'Sleep Disturbances' symptom")
+                context.delete(sleepDisturbances)
+            }
+            
+            try context.save()
+            print("DEBUG: Successfully updated existing symptoms")
+        } catch {
+            print("DEBUG ERROR: Failed to update existing symptoms: \(error)")
         }
     }
     
