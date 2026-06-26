@@ -129,7 +129,7 @@ modules:
       - DesignSystem.swift
     known_gaps:
       - Emotions, discharge, sexual activity, and symptom detail are serialized into notes text instead of structured fields.
-      - Cycle detection depends on string markers like `Status: On` and `Status: Off` inside notes.
+      - "Cycle detection depends on string markers like `Status: On` and `Status: Off` inside notes."
       - Prediction logic is heuristic and does not model irregular cycles beyond coarse day-gap checks.
     match_keywords: [period tracker, menstrual cycle logging, cycle estimation, period diary, reproductive health tracking]
 
@@ -170,7 +170,7 @@ modules:
       - HealthTracker/CoreDataStack.swift
       - DesignSystem.swift
     known_gaps:
-      - `selectedTimeframe` initializes to `Last 7 Days` while the implemented options and date logic use `7 days`, `30 days`, `90 days`, and `All time`.
+      - "`selectedTimeframe` initializes to `Last 7 Days` while the implemented options and date logic use `7 days`, `30 days`, `90 days`, and `All time`."
       - Lifestyle analytics recover caffeine, water, and exercise labels by parsing notes text instead of typed stored values directly.
       - High-stress-day counting checks for values `>= 7` even though daily-entry stress input uses a 0-5 slider.
       - Mixed sleep-quality storage conventions make exported and summarized sleep quality values inconsistent.
