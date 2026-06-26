@@ -27,6 +27,7 @@ A women's health tracking app built for Emily. Features period tracking, hormone
 |---------|-------------|-------|
 
 ## Status
+**Lane:** personal
 **Phase:** Early development / stalled
 **Current focus:** Paused — core features partially built
 **Last updated:** 2026-04-04
