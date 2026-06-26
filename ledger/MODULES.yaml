@@ -78,7 +78,7 @@ modules:
     tech: [SwiftUI, CoreData, Foundation, UserDefaults]
     io:
       in: selected date, symptom ratings, notes, tags, sleep values, lifestyle values, medications, and triggers
-      out: `DailyEntry`, `SymptomRating`, `SleepEntry`, and `LifestyleEntry` updates for the selected day
+      out: "`DailyEntry`, `SymptomRating`, `SleepEntry`, and `LifestyleEntry` updates for the selected day"
     code_refs:
       - HealthTracker/DailyTrackingView.swift
       - HealthTracker/SymptomDataManager.swift
