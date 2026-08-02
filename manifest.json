@@ -1,0 +1,23 @@
+{
+  "capture_finished_at_utc": "2026-08-02T03:40:58Z",
+  "capture_started_at_utc": "2026-08-02T03:40:55Z",
+  "captured_at_utc": "2026-08-02T03:40:55Z",
+  "captured_byte_estimate": 3527037,
+  "captured_path_count": 64,
+  "consistency_retry_count": 0,
+  "excluded": [],
+  "github_hard_limit_bytes": 100000000,
+  "guardian_version": "2.0-sidecar",
+  "head_state": "symbolic",
+  "host": "aidans-laptop",
+  "racy_capture": false,
+  "repository_id": "HealthTracker-72a4e6881607",
+  "schema_version": 1,
+  "snapshot_blob_threshold_bytes": 94371840,
+  "snapshot_consistency": "stable",
+  "source_branch": "main",
+  "source_head_oid": "be5966a86cb57da8eb9956c58c948ba6f0589ff8",
+  "source_index_sha256": "3104e2e57f18945cef08d6642e37f1b60f6ee51b0a1030778e456353b4a8ca39",
+  "source_path": "/Users/aidan/Dev/HealthTracker",
+  "upstream_observed": "origin/main"
+}
