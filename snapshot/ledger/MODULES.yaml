@@ -1,0 +1,201 @@
+project_shape:
+  scale: multi-subsystem
+  has_subsystem_layer: true
+  expected_modules: "7-10"
+  kind: product
+
+modules:
+  - id: healthtracker.shared-app-shell.navigation-shell
+    project: HealthTracker
+    subsystem: Shared App Shell
+    name: Navigation Shell
+    capability: Launches the app, injects the Core Data context, and exposes the main tabbed navigation.
+    status: working
+    approach: Uses a SwiftUI `App` entrypoint plus a `TabView`, UIKit tab-bar appearance overrides, and startup-time symptom bootstrapping.
+    tech: [SwiftUI, CoreData, UIKit, NotificationCenter, UserDefaults]
+    io:
+      in: app lifecycle events and user tab selections
+      out: root navigation, configured managed object context, and initial symptom seeding/update actions
+    code_refs:
+      - HealthTracker/HealthTrackerApp.swift
+      - HealthTracker/ContentView.swift
+    known_gaps:
+      - The dedicated sleep screen exists but is not exposed from the main tab bar.
+      - Startup work is driven by `onAppear` side effects and debug logging rather than a dedicated initialization layer.
+    match_keywords: [swiftui app shell, tab navigation, app bootstrap, ios entrypoint, root view composition]
+
+  - id: healthtracker.shared-data-persistence.core-data-store
+    project: HealthTracker
+    subsystem: Shared Data Persistence
+    name: Core Data Store
+    capability: Defines the local schema and persists symptom, period, sleep, lifestyle, and daily log records.
+    status: partial
+    approach: Builds the Core Data model programmatically in a singleton `NSPersistentContainer`, with some structured values stored as plain strings or JSON text.
+    tech: [CoreData, Foundation, NSPersistentContainer, NSManagedObject, JSONEncoder, JSONDecoder]
+    io:
+      in: save and fetch requests from tracking and reporting screens
+      out: persisted `PredefinedSymptom`, `DailyEntry`, `SymptomRating`, `PeriodEntry`, `SleepEntry`, and `LifestyleEntry` records
+    code_refs:
+      - HealthTracker/CoreDataStack.swift
+      - HealthTracker/SymptomDataManager.swift
+      - HealthTracker/DailyTrackingView.swift
+      - HealthTracker/PeriodTrackingView.swift
+      - HealthTracker/SleepTrackingView.swift
+      - HealthTracker/HistoryView.swift
+    known_gaps:
+      - The schema is defined entirely in code with no visible migration or model-versioning path.
+      - Several structured concepts are serialized into `notes` or string fields instead of typed attributes or relationships.
+      - Sleep quality is persisted with inconsistent scales across the combined daily-entry flow and the dedicated sleep screen.
+    match_keywords: [core data persistence, offline datastore, local health records, ios storage layer, programmatic schema]
+
+  - id: healthtracker.symptom-management.symptom-catalog
+    project: HealthTracker
+    subsystem: Symptom Management
+    name: Symptom Catalog
+    capability: Seeds, updates, groups, and filters the predefined symptom list used by daily tracking.
+    status: partial
+    approach: Keeps a hard-coded symptom catalog in a singleton manager, stores active flags in Core Data, and groups active symptoms by category for rendering.
+    tech: [CoreData, Foundation, UserDefaults]
+    io:
+      in: first-run checks, rename/update rules, and symptom visibility toggles
+      out: persisted predefined symptoms and grouped active symptom collections
+    code_refs:
+      - HealthTracker/SymptomDataManager.swift
+      - HealthTracker/ContentView.swift
+      - DesignSystem.swift
+    known_gaps:
+      - The catalog is centered on migraine and post-concussion symptoms even though the project brief describes a broader women's health tracker.
+      - Catalog migrations rely on a one-off `UserDefaults` flag instead of versioned data migration logic.
+      - Categories and labels are embedded in code rather than data.
+    match_keywords: [symptom library, symptom taxonomy, symptom seeding, symptom catalog management, health symptom tracker]
+
+  - id: healthtracker.symptom-management.daily-entry-workflow
+    project: HealthTracker
+    subsystem: Symptom Management
+    name: Daily Entry Workflow
+    capability: Captures a day's symptoms, notes, tags, sleep inputs, and lifestyle inputs from one consolidated entry screen.
+    status: partial
+    approach: Uses a large SwiftUI form built from shared UI components, then fans out saves into daily, sleep, and lifestyle Core Data records.
+    tech: [SwiftUI, CoreData, Foundation, UserDefaults]
+    io:
+      in: selected date, symptom ratings, notes, tags, sleep values, lifestyle values, medications, and dietary triggers
+      out: updated `DailyEntry`, `SymptomRating`, `SleepEntry`, and `LifestyleEntry` records for the selected day
+    code_refs:
+      - HealthTracker/DailyTrackingView.swift
+      - HealthTracker/SymptomDataManager.swift
+      - DesignSystem.swift
+    known_gaps:
+      - The screen mixes multiple domains and persistence flows in one file, making the workflow tightly coupled.
+      - Sleep quality is loaded and saved on a different scale here than in the standalone sleep tracker.
+      - Tags are embedded into the daily notes text instead of being modeled as first-class data.
+      - Lifestyle intake labels are reconstructed by parsing notes text on reload instead of typed fields alone.
+    match_keywords: [daily health log, symptom journal, combined intake form, daily tracking workflow, health diary]
+
+  - id: healthtracker.sleep-tracking.sleep-log
+    project: HealthTracker
+    subsystem: Sleep Tracking
+    name: Sleep Log
+    capability: Records sleep duration, quality, disturbances, notes, and recent sleep trends in a dedicated sleep screen.
+    status: partial
+    approach: Uses SwiftUI sliders and toggle chips, then stores per-day sleep entries in Core Data with disturbances JSON-encoded into a string field.
+    tech: [SwiftUI, CoreData, Foundation, JSONEncoder, JSONDecoder]
+    io:
+      in: selected date, hours slept, sleep quality, disturbance selections, and notes
+      out: persisted `SleepEntry` records and recent-sleep summaries
+    code_refs:
+      - HealthTracker/SleepTrackingView.swift
+      - HealthTracker/CoreDataStack.swift
+      - DesignSystem.swift
+    known_gaps:
+      - The dedicated sleep tracker is not reachable from the app's main tab navigation.
+      - It stores sleep quality on a different numeric scale than the combined daily-entry flow.
+      - Disturbances are stored as encoded text rather than normalized related records.
+    match_keywords: [sleep tracker, sleep journal, sleep quality logging, sleep disturbance tracking, sleep diary]
+
+  - id: healthtracker.period-tracking.period-log-and-cycle-estimation
+    project: HealthTracker
+    subsystem: Period Tracking
+    name: Period Log And Cycle Estimation
+    capability: Logs period status and details, shows recent history, and estimates cycle position and next-period timing.
+    status: partial
+    approach: Uses a SwiftUI tracking screen backed by Core Data, stores supplemental detail in `PeriodEntry` fields and notes text, and infers cycles with date-gap heuristics.
+    tech: [SwiftUI, CoreData, Foundation, JSONEncoder]
+    io:
+      in: selected date, on or off status, flow, symptom sliders, emotions, discharge, sexual activity, and notes
+      out: persisted `PeriodEntry` records plus derived cycle-day and next-period estimates
+    code_refs:
+      - HealthTracker/PeriodTrackingView.swift
+      - HealthTracker/CoreDataStack.swift
+      - DesignSystem.swift
+    known_gaps:
+      - Emotions, discharge, sexual activity, and symptom detail are serialized into notes text instead of structured fields.
+      - "Cycle detection depends on string markers like `Status: On` and `Status: Off` inside notes."
+      - Prediction logic is heuristic and does not model irregular cycles beyond coarse day-gap checks.
+    match_keywords: [period tracker, menstrual cycle logging, cycle estimation, period diary, reproductive health tracking]
+
+  - id: healthtracker.hormone-charts.hormone-reference-visualization
+    project: HealthTracker
+    subsystem: Hormone Charts
+    name: Hormone Reference Visualization
+    capability: Shows reference hormone curves across a 28-day cycle and overlays period-history-based cycle predictions.
+    status: partial
+    approach: Uses hard-coded hormone reference data plus custom SwiftUI chart and calendar views, then estimates cycle context from saved period entries.
+    tech: [SwiftUI, CoreData, Foundation]
+    io:
+      in: selected hormone type and recent `PeriodEntry` history
+      out: hormone charts, cycle-phase explanations, and next-period calendar predictions
+    code_refs:
+      - HealthTracker/HormoneChartView.swift
+      - HealthTracker/CoreDataStack.swift
+      - DesignSystem.swift
+    known_gaps:
+      - Hormone values are static reference data rather than user measurements or imported lab results.
+      - Predictions assume a simplified average-cycle model with a 28-day default.
+      - Cycle inference again depends on note-string status markers from period entries.
+    match_keywords: [hormone chart, cycle phase visualization, period prediction calendar, menstrual hormone reference, reproductive analytics]
+
+  - id: healthtracker.history-reporting.history-analytics-and-export
+    project: HealthTracker
+    subsystem: History & Reporting
+    name: History Analytics And Export
+    capability: Aggregates stored entries into summaries, recent-history lists, delete actions, and CSV export output.
+    status: partial
+    approach: Fetches multiple Core Data entity types for a selected timeframe, computes lightweight in-memory statistics, and exports CSV through a UIKit share sheet.
+    tech: [SwiftUI, CoreData, Foundation, UIKit]
+    io:
+      in: timeframe selection and stored daily, period, sleep, and lifestyle records
+      out: history summaries, top-symptom statistics, deletion actions, and shared CSV files
+    code_refs:
+      - HealthTracker/HistoryView.swift
+      - HealthTracker/CoreDataStack.swift
+      - DesignSystem.swift
+    known_gaps:
+      - "`selectedTimeframe` initializes to `Last 7 Days` while the implemented options and date logic use `7 days`, `30 days`, `90 days`, and `All time`."
+      - Lifestyle analytics recover caffeine, water, and exercise labels by parsing notes text instead of typed stored values directly.
+      - High-stress-day counting checks for values `>= 7` even though daily-entry stress input uses a 0-5 slider.
+      - Mixed sleep-quality storage conventions make exported and summarized sleep quality values inconsistent.
+    match_keywords: [health history dashboard, symptom analytics, csv export, trend reporting, personal health reports]
+
+  - id: healthtracker.design-system.minimal-health-ui-kit
+    project: HealthTracker
+    subsystem: Design System
+    name: Minimal Health UI Kit
+    capability: Provides the shared visual tokens and reusable SwiftUI controls used across the app's tracking screens.
+    status: working
+    approach: Defines colors, typography, spacing, and shared SwiftUI primitives such as cards, sliders, chips, collapsible sections, and modal helpers in one file.
+    tech: [SwiftUI, CoreData]
+    io:
+      in: feature-screen state and content closures
+      out: reusable UI composition, styling tokens, and shared interaction components
+    code_refs:
+      - DesignSystem.swift
+      - HealthTracker/ContentView.swift
+      - HealthTracker/DailyTrackingView.swift
+      - HealthTracker/PeriodTrackingView.swift
+      - HealthTracker/HormoneChartView.swift
+      - HealthTracker/HistoryView.swift
+      - HealthTracker/SleepTrackingView.swift
+    known_gaps:
+      - Shared UI primitives and many feature-specific helper views live together in one large file, which makes ownership and reuse coarse.
+      - The design layer includes Core Data-aware helpers like `MinimalSymptomCategory` and `MinimalEditModal` instead of staying purely presentational.
+    match_keywords: [swiftui design system, reusable ui components, health app ui kit, design tokens, ios component library]
